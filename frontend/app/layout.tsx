@@ -6,8 +6,7 @@ import { CommandMenu } from "@/components/command-menu";
 import { AnnouncementBar } from "@/components/announcement-bar";
 import SiteHeader from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-// @ts-expect-error -- Next.js handles CSS side-effect imports during compilation.
-import "./globals.css";
+require("./globals.css");
 
 const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
 
