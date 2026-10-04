@@ -1,0 +1,242 @@
+@import "tailwindcss";
+
+/* Class-based dark mode — toggled by @lacspace/theme's <ThemeProvider>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Semantic color tokens → Tailwind utilities (text-fg, text-muted, bg-surface,
+   border-hairline, bg-primary, bg-dark-1, …). They resolve to the CSS vars below. */
+@theme inline {
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-surface: var(--surface);
+  --color-panel: var(--panel);
+  --color-hairline: var(--hairline);
+  --color-accent: var(--accent-to);
+
+  /* Aarambha brand palette */
+  --color-primary: var(--primary);
+  --color-primary-light: var(--primary-light);
+  --color-accent-orange: var(--accent-orange);
+  --color-dark-1: var(--dark-1);
+  --color-dark-2: var(--dark-2);
+  --color-footer: var(--footer);
+  --color-cream: var(--cream);
+  --color-white-soft: var(--white);
+  --color-grey-light: var(--grey-light);
+  --color-text-grey: var(--text-grey);
+  --color-whatsapp: var(--whatsapp);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  /* ── Aarambha brand palette (extracted from design) ── */
+  --primary: #FBB501;
+  --primary-light: #FAC53A;
+  --accent-orange: #FAA212;
+  --dark-1: #0A0E12;
+  --dark-2: #141B22;
+  --footer: #12191F;
+  --cream: #FEF8EB;
+  --white: #FEFEFE;
+  --grey-light: #F9F9F9;
+  --text-grey: #8E8E8A;
+  --whatsapp: #25D366;
+
+  /* Accent gradient: brand yellow → amber */
+  --accent-from: var(--primary);
+  --accent-to: var(--accent-orange);
+  /* on-accent text — yellow is bright, so near-black reads cleanest */
+  --on-accent: var(--dark-1);
+  /* Light theme — white ground, near-black ink */
+  --bg: var(--white);
+  --fg: var(--dark-1);
+  --muted: #52525b;
+  --faint: var(--text-grey);
+  --surface: rgb(0 0 0 / 0.025);
+  --panel: rgb(0 0 0 / 0.05);
+  --hairline: rgb(0 0 0 / 0.08);
+  /* soft, layered shadows (never harsh) */
+  --shadow-sm: 0 1px 2px rgb(15 15 25 / 0.05), 0 1px 1px rgb(15 15 25 / 0.03);
+  --shadow: 0 4px 12px -2px rgb(15 15 25 / 0.08), 0 2px 6px -2px rgb(15 15 25 / 0.05);
+  --shadow-lg: 0 24px 48px -12px rgb(15 15 25 / 0.14), 0 8px 20px -8px rgb(15 15 25 / 0.08);
+  --glow: 0 0 0 1px rgb(0 0 0 / 0.04);
+  --radius: 1rem;
+  --radius-lg: 1.5rem;
+}
+
+.dark {
+  /* Dark theme — brand charcoal/navy */
+  --on-accent: var(--dark-1);
+  --bg: var(--dark-1);
+  --fg: #f5f5f7;
+  --muted: rgb(235 235 245 / 0.66);
+  --faint: rgb(235 235 245 / 0.42);
+  --surface: rgb(255 255 255 / 0.035);
+  --panel: rgb(255 255 255 / 0.07);
+  --hairline: rgb(255 255 255 / 0.09);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow: 0 8px 24px -6px rgb(0 0 0 / 0.5);
+  --shadow-lg: 0 32px 64px -16px rgb(0 0 0 / 0.65), 0 12px 28px -12px rgb(0 0 0 / 0.5);
+  --glow: 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+* { border-color: var(--hairline); }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Confident, tight display type — a fluid clamp() scale + negative tracking. */
+h1, h2, h3, .display { letter-spacing: -0.02em; text-wrap: balance; }
+h1, .display { letter-spacing: -0.035em; line-height: 1.02; }
+.text-display { font-size: clamp(2.6rem, 6.5vw, 4.75rem); line-height: 1; letter-spacing: -0.04em; font-weight: 800; text-wrap: balance; }
+.text-hero { font-size: clamp(2.2rem, 5.5vw, 3.75rem); line-height: 1.03; letter-spacing: -0.035em; font-weight: 800; text-wrap: balance; }
+.lead { font-size: clamp(1.05rem, 1.6vw, 1.25rem); line-height: 1.6; color: var(--muted); text-wrap: pretty; }
+
+::selection { background: var(--primary); color: var(--dark-1); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--panel); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--hairline); }
+:focus-visible { outline: 2px solid var(--accent-to); outline-offset: 2px; border-radius: 6px; }
+
+/* Skip link: off-screen until it is focused, then the first thing you see.
+   The wrapper it targets carries tabIndex={-1}, so focus actually moves there
+   instead of the browser only scrolling. */
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: var(--accent-to);
+  color: var(--on-accent);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 0.18s ease;
+}
+.skip-link:focus { transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
+#main:focus { outline: none; }
+
+.gradient-text {
+  background: linear-gradient(115deg, var(--accent-from), var(--accent-to));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.gradient-bg { background: linear-gradient(115deg, var(--accent-from), var(--accent-to)); }
+.on-accent { color: var(--on-accent); }
+
+/* brand helpers */
+.bg-brand { background: var(--primary); color: var(--on-accent); }
+.bg-cream { background: var(--cream); }
+.bg-dark-section { background: var(--dark-2); color: #fff; }
+.bg-footer { background: var(--footer); color: #fff; }
+
+/* soft accent halo used behind hero type & badges */
+.accent-glow { box-shadow: 0 8px 32px -8px color-mix(in oklab, var(--accent-to) 55%, transparent); }
+
+/* opaque theme background (for sticky chrome & chips) */
+.bg-app { background: var(--bg); }
+
+/* frosted glass — translucent surface + blur + hairline */
+.glass {
+  background: color-mix(in oklab, var(--bg) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid var(--hairline);
+}
+
+/* the workhorse surface card — rounded, hairline, soft shadow, hover lift + glow */
+.card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.4s var(--ease-out-expo), box-shadow 0.4s var(--ease-out-expo), border-color 0.4s var(--ease-out-expo);
+}
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  border-color: color-mix(in oklab, var(--accent-to) 40%, var(--hairline));
+}
+
+/* subtle gradient hairline border (draws focus without shouting) */
+.gradient-border { position: relative; }
+.gradient-border::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(140deg, color-mix(in oklab, var(--accent-from) 60%, transparent), transparent 45%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+}
+
+/* subtle background patterns for section grounds */
+.grid-bg {
+  background-image: linear-gradient(var(--hairline) 1px, transparent 1px), linear-gradient(90deg, var(--hairline) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 30%, transparent 75%);
+}
+.dot-bg {
+  background-image: radial-gradient(var(--hairline) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 20%, transparent 70%);
+  mask-image: radial-gradient(ellipse 60% 50% at 50% 40%, #000 20%, transparent 70%);
+}
+
+/* indeterminate progress bar (used by the "under development" pages) */
+@keyframes loadbar { 0% { transform: translateX(-120%); } 100% { transform: translateX(340%); } }
+
+/* ambient motion for illustrations & the aurora background */
+@keyframes floaty { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18px); } }
+@keyframes drift { 0%, 100% { transform: translate3d(0, 0, 0) scale(1); } 33% { transform: translate3d(4%, -3%, 0) scale(1.06); } 66% { transform: translate3d(-3%, 3%, 0) scale(0.96); } }
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+@keyframes gradient-pan { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes marquee-x { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes shimmer-sweep { 0% { transform: translateX(-120%) skewX(-16deg); } 60%, 100% { transform: translateX(320%) skewX(-16deg); } }
+.animate-floaty { animation: floaty 6s ease-in-out infinite; }
+.animate-floaty-slow { animation: floaty 9s ease-in-out infinite; }
+.animate-drift { animation: drift 22s ease-in-out infinite; }
+.animate-drift-slow { animation: drift 30s ease-in-out infinite; }
+.animate-spin-slow { animation: spin-slow 30s linear infinite; }
+.gradient-text-animated {
+  background: linear-gradient(115deg, var(--accent-from), var(--accent-to), var(--accent-from));
+  background-size: 200% 200%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: gradient-pan 6s ease infinite;
+}
+.marquee-track { display: flex; width: max-content; animation: marquee-x 40s linear infinite; }
+.marquee-track:hover { animation-play-state: paused; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+.animate-draw { stroke-dasharray: 2000; stroke-dashoffset: 2000; animation: draw 1.8s var(--ease-out-expo) forwards; }
+.marquee-mask { -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+
+/* a slow gradient light-sweep for primary CTAs */
+.shimmer { position: relative; overflow: hidden; }
+.shimmer::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.45), transparent);
+  animation: shimmer-sweep 4.5s var(--ease-out-expo) infinite; pointer-events: none;
+}
+
+/* soft, staggered entrance for content — nicer easing */
+@keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+main > section { animation: rise 0.7s var(--ease-out-expo) both; }
+main > section:nth-of-type(2) { animation-delay: 0.06s; }
+main > section:nth-of-type(3) { animation-delay: 0.12s; }
+main > section:nth-of-type(4) { animation-delay: 0.16s; }
+
+/* respect reduced motion — kill animation AND transition-driven transforms */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation: none !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  .shimmer::after { display: none; }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@ammrambha_courier/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "mongoose": "^8.9.0",
+    "ioredis": "^5.4.2",
+    "dotenv": "^16.4.7",
+    "@lacspace/env": "^1.1.0",
+    "@lacspace/jwt": "^1.4.0",
+    "@lacspace/password": "^1.1.0",
+    "@lacspace/validate": "^1.1.0",
+    "@lacspace/id": "^1.1.0",
+    "@lacspace/rate-limit": "^1.2.0",
+    "@lacspace/cache": "^1.1.0",
+    "@lacspace/logger": "^1.0.0",
+    "@lacspace/headers": "^1.1.2",
+    "@lacspace/otp": "^1.2.0",
+    "@lacspace/esewa": "^1.2.0",
+    "@lacspace/khalti": "^1.1.0",
+    "@lacspace/money": "^1.1.0",
+    "@lacspace/mailer": "^1.2.0",
+    "@lacspace/email-templates": "^1.1.0",
+    "@lacspace/email-validate": "^1.1.0",
+    "@lacspace/sse": "^1.0.0",
+    "@ammrambha_courier/types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "tsx": "^4.19.2",
+    "@types/node": "^22.10.0",
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17"
+  }
+}

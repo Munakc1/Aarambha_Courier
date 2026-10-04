@@ -1,0 +1,44 @@
+/* Map this app's tokens onto @lacspace/components.
+ *
+ * The kit's own dark palette lives behind `prefers-color-scheme` and a
+ * `data-theme` attribute, but this app switches themes with a `.dark` class on
+ * <html>. The repeated `:root` below is deliberate: it raises specificity just
+ * enough to win against the kit's own theme blocks, whatever the OS setting is,
+ * so the components follow YOUR toggle and never fight it.
+ *
+ * Every line here is a suggestion — change any of them and the whole kit
+ * follows. The full token list is at the top of @lacspace/components/styles.css.
+ */
+:root:root:root {
+  /* Brand */
+  --lac-accent: var(--accent-to);
+  --lac-accent-hover: var(--accent-from);
+  --lac-accent-active: var(--accent-from);
+  --lac-accent-fg: var(--on-accent);
+  --lac-accent-soft: color-mix(in oklab, var(--accent-to) 14%, transparent);
+  --lac-accent-ring: color-mix(in oklab, var(--accent-to) 38%, transparent);
+
+  /* Surfaces & text — these already swap with the .dark class, so dark mode
+     comes along for free. */
+  --lac-bg: var(--bg);
+  --lac-bg-subtle: var(--surface);
+  --lac-bg-muted: var(--panel);
+  --lac-surface: var(--surface);
+  --lac-surface-raised: var(--panel);
+  --lac-fg: var(--fg);
+  --lac-fg-muted: var(--muted);
+  --lac-fg-faint: var(--faint);
+  --lac-fg-on-accent: var(--on-accent);
+
+  /* Lines & depth */
+  --lac-border: var(--hairline);
+  --lac-border-strong: color-mix(in oklab, var(--fg) 22%, transparent);
+  --lac-shadow-sm: var(--shadow-sm);
+  --lac-shadow: var(--shadow);
+  --lac-shadow-lg: var(--shadow-lg);
+
+  /* Shape & type */
+  --lac-radius: var(--radius);
+  --lac-radius-lg: var(--radius-lg);
+  --lac-font: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}

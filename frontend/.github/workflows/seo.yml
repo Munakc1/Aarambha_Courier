@@ -1,0 +1,25 @@
+name: SEO
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      - name: Start the app
+        run: npm run start &
+      - name: Wait for it
+        run: npx wait-on http://localhost:3000 -t 60000
+      - name: Audit every page (fails below grade A)
+        run: npx @lacspace/seo crawl http://localhost:3000 --min-grade A
