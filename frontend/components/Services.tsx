@@ -19,7 +19,7 @@ const services: Service[] = [
   {
     title: "Domestic Courier",
     description:
-      "Fast and reliable delivery to all cities, towns & rural areas across Nepal.",
+      "Fast and reliable delivery to cities, towns, and rural areas across Nepal.",
     href: "/services/domestic-courier",
     icon: (
       <svg {...iconProps} fill="currentColor">
@@ -34,32 +34,46 @@ const services: Service[] = [
       </svg>
     ),
   },
+
   {
     title: "Pickup Service",
     description:
-      "We pick up from your location and deliver safely to the destination.",
-    href: "/services/pickup",
+      "We pick up parcels from your location and deliver them safely to the destination.",
+    href: "/services/pickup-service",
     icon: (
       <svg {...iconProps} fill="currentColor">
         <rect x="8" y="2" width="8" height="9" rx="1.5" />
-        <rect x="11" y="4" width="2" height="4" rx="1" fill="var(--primary)" />
+        <rect
+          x="11"
+          y="4"
+          width="2"
+          height="4"
+          rx="1"
+          fill="var(--primary)"
+        />
         <path d="M2 15h4v6H2z" />
         <path d="M7 16.5 11 15h5.5a1.8 1.8 0 0 1 0 3.6H12l4.8-.2 4.2-2.2v1.6L15 21H7z" />
       </svg>
     ),
   },
+
   {
     title: "Cash on Delivery",
     description:
-      "Collect payments from your customers with our secure COD service.",
-    href: "/services/cod",
-    icon: <span className="text-xl font-extrabold leading-none">COD</span>,
+      "Collect payments from your customers with our secure COD delivery service.",
+    href: "/services/cash-on-delivery",
+    icon: (
+      <span className="text-xl font-extrabold leading-none">
+        COD
+      </span>
+    ),
   },
+
   {
     title: "Document Delivery",
     description:
       "Secure and timely delivery of important documents and official papers.",
-    href: "/services/documents",
+    href: "/services/document-delivery",
     icon: (
       <svg {...iconProps} fill="currentColor">
         <path d="M6 2h8l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
@@ -73,11 +87,12 @@ const services: Service[] = [
       </svg>
     ),
   },
+
   {
     title: "International Courier",
     description:
-      "Worldwide delivery and customs clearance with global tracking support.",
-    href: "/services/international",
+      "Worldwide delivery with customs support and international tracking.",
+    href: "/services/international-courier",
     icon: (
       <svg
         {...iconProps}
@@ -102,38 +117,49 @@ export default function Services() {
       className="bg-app px-4 py-16 sm:px-6 lg:px-8"
     >
       <div className="mx-auto max-w-7xl">
+        {/* Section heading */}
         <div className="text-center">
           <p className="text-sm font-semibold tracking-wide text-accent-orange">
             OUR SERVICES
           </p>
+
           <h2
             id="services-heading"
             className="mt-1 text-3xl font-extrabold text-fg sm:text-4xl"
           >
             Reliable Solutions for Every Delivery Need
           </h2>
+
+          <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
+            From everyday parcels and documents to business deliveries and
+            international shipments, we provide practical courier solutions
+            for individuals and businesses.
+          </p>
         </div>
 
+        {/* Service cards */}
         <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {services.map((s) => (
-            <li key={s.title}>
+          {services.map((service) => (
+            <li key={service.title}>
               <article className="card flex h-full flex-col items-center bg-white-soft px-6 py-7 text-center dark:bg-surface">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/40 text-dark-1">
-                  {s.icon}
+                  {service.icon}
                 </div>
 
                 <h3 className="mt-4 text-base font-semibold text-fg">
-                  {s.title}
+                  {service.title}
                 </h3>
+
                 <p className="mt-2 text-sm leading-relaxed text-muted">
-                  {s.description}
+                  {service.description}
                 </p>
 
                 <a
-                  href={s.href}
-                  className="mt-auto inline-flex items-center gap-1.5 pt-5 text-sm font-semibold text-fg hover:text-accent-orange"
+                  href={service.href}
+                  className="mt-auto inline-flex items-center gap-1.5 pt-5 text-sm font-semibold text-fg transition-colors hover:text-accent-orange"
                 >
                   Learn More
+
                   <svg
                     width="14"
                     height="14"
@@ -153,6 +179,7 @@ export default function Services() {
           ))}
         </ul>
 
+        {/* Stats */}
         <StatsBar />
       </div>
     </section>

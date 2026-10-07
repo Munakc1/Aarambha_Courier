@@ -1,15 +1,127 @@
+
+"use client";
+
+import Image from "next/image";
 import Link from "next/link";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Building2,
   LockKeyhole,
   Mail,
   Phone,
-  Truck,
   User,
 } from "lucide-react";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+const inputClass =
+  "h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20";
+
+const iconClass =
+  "absolute left-4 top-1/2 -translate-y-1/2 text-muted";
+
+const labelClass = "mb-2 block text-sm font-semibold text-fg";
+
 export default function VendorRegisterPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    setError("");
+
+    const form = new FormData(e.currentTarget);
+
+    const fullName = String(form.get("fullName") ?? "").trim();
+    const businessName = String(form.get("businessName") ?? "").trim();
+    const email = String(form.get("email") ?? "")
+      .trim()
+      .toLowerCase();
+    const phone = String(form.get("phone") ?? "").trim();
+    const address = String(form.get("address") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+    const confirmPassword = String(form.get("confirmPassword") ?? "");
+    const terms = form.get("terms") === "on";
+
+    // Frontend validation
+    if (!fullName || !businessName || !email || !phone || !address) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    // Nepal mobile number validation
+    if (!/^9[678]\d{8}$/.test(phone)) {
+      setError("Please enter a valid Nepal mobile number.");
+      return;
+    }
+
+    if (!terms) {
+      setError("Please accept the vendor terms and conditions.");
+      return;
+    }
+
+    if (!API_URL) {
+      setError("API configuration is missing.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await fetch(`${API_URL}/api/vendor/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          fullName,
+          businessName,
+          email,
+          phone,
+          address,
+          password,
+        }),
+      });
+
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message || "Unable to create vendor account."
+        );
+      }
+
+      // Registration successful.
+      // Backend can either automatically log the vendor in
+      // or simply return success.
+      router.push("/vendor/login?registered=true");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <main className="min-h-screen bg-app">
       <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
@@ -25,12 +137,21 @@ export default function VendorRegisterPage() {
 
           {/* Register Card */}
           <div className="rounded-3xl border border-hairline bg-white-soft p-6 shadow-xl dark:bg-surface sm:p-8 lg:p-10">
-            {/* Logo / Icon */}
-            <div className="flex justify-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-dark-1 shadow-sm">
-                <Truck size={30} strokeWidth={2.2} />
-              </div>
-            </div>
+            {/* Logo */}
+            <Link
+              href="/"
+              aria-label="Aarambha Courier — home"
+              className="group flex justify-center"
+            >
+              <Image
+                src="/images/logo.png"
+                alt="Aarambha Courier"
+                width={200}
+                height={50}
+                priority
+                className="h-[43px] w-auto transition-transform duration-300 group-hover:scale-[1.02] xl:h-[50px]"
+              />
+            </Link>
 
             {/* Heading */}
             <div className="mt-6 text-center">
@@ -49,23 +170,16 @@ export default function VendorRegisterPage() {
             </div>
 
             {/* Form */}
-            <form className="mt-8 space-y-5">
+            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               {/* Full Name + Business Name */}
               <div className="grid gap-5 sm:grid-cols-2">
-                {/* Full Name */}
                 <div>
-                  <label
-                    htmlFor="fullName"
-                    className="mb-2 block text-sm font-semibold text-fg"
-                  >
+                  <label htmlFor="fullName" className={labelClass}>
                     Full Name
                   </label>
 
                   <div className="relative">
-                    <User
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
+                    <User size={18} className={iconClass} />
 
                     <input
                       id="fullName"
@@ -74,25 +188,18 @@ export default function VendorRegisterPage() {
                       autoComplete="name"
                       placeholder="Your full name"
                       required
-                      className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className={inputClass}
                     />
                   </div>
                 </div>
 
-                {/* Business Name */}
                 <div>
-                  <label
-                    htmlFor="businessName"
-                    className="mb-2 block text-sm font-semibold text-fg"
-                  >
+                  <label htmlFor="businessName" className={labelClass}>
                     Business Name
                   </label>
 
                   <div className="relative">
-                    <Building2
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
+                    <Building2 size={18} className={iconClass} />
 
                     <input
                       id="businessName"
@@ -100,7 +207,7 @@ export default function VendorRegisterPage() {
                       type="text"
                       placeholder="Your business name"
                       required
-                      className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className={inputClass}
                     />
                   </div>
                 </div>
@@ -108,20 +215,13 @@ export default function VendorRegisterPage() {
 
               {/* Email + Phone */}
               <div className="grid gap-5 sm:grid-cols-2">
-                {/* Email */}
                 <div>
-                  <label
-                    htmlFor="email"
-                    className="mb-2 block text-sm font-semibold text-fg"
-                  >
+                  <label htmlFor="email" className={labelClass}>
                     Email Address
                   </label>
 
                   <div className="relative">
-                    <Mail
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
+                    <Mail size={18} className={iconClass} />
 
                     <input
                       id="email"
@@ -130,34 +230,30 @@ export default function VendorRegisterPage() {
                       autoComplete="email"
                       placeholder="you@example.com"
                       required
-                      className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className={inputClass}
                     />
                   </div>
                 </div>
 
-                {/* Phone */}
                 <div>
-                  <label
-                    htmlFor="phone"
-                    className="mb-2 block text-sm font-semibold text-fg"
-                  >
+                  <label htmlFor="phone" className={labelClass}>
                     Phone Number
                   </label>
 
                   <div className="relative">
-                    <Phone
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
+                    <Phone size={18} className={iconClass} />
 
                     <input
                       id="phone"
                       name="phone"
                       type="tel"
+                      inputMode="numeric"
                       autoComplete="tel"
                       placeholder="98XXXXXXXX"
+                      pattern="9[678][0-9]{8}"
+                      maxLength={10}
                       required
-                      className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className={inputClass}
                     />
                   </div>
                 </div>
@@ -165,46 +261,34 @@ export default function VendorRegisterPage() {
 
               {/* Address */}
               <div>
-                <label
-                  htmlFor="address"
-                  className="mb-2 block text-sm font-semibold text-fg"
-                >
+                <label htmlFor="address" className={labelClass}>
                   Business Address
                 </label>
 
                 <div className="relative">
-                  <Building2
-                    size={18}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                  />
+                  <Building2 size={18} className={iconClass} />
 
                   <input
                     id="address"
                     name="address"
                     type="text"
                     placeholder="Enter your business address"
+                    autoComplete="street-address"
                     required
-                    className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    className={inputClass}
                   />
                 </div>
               </div>
 
               {/* Password + Confirm Password */}
               <div className="grid gap-5 sm:grid-cols-2">
-                {/* Password */}
                 <div>
-                  <label
-                    htmlFor="password"
-                    className="mb-2 block text-sm font-semibold text-fg"
-                  >
+                  <label htmlFor="password" className={labelClass}>
                     Password
                   </label>
 
                   <div className="relative">
-                    <LockKeyhole
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
+                    <LockKeyhole size={18} className={iconClass} />
 
                     <input
                       id="password"
@@ -214,25 +298,18 @@ export default function VendorRegisterPage() {
                       placeholder="Create password"
                       required
                       minLength={8}
-                      className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className={inputClass}
                     />
                   </div>
                 </div>
 
-                {/* Confirm Password */}
                 <div>
-                  <label
-                    htmlFor="confirmPassword"
-                    className="mb-2 block text-sm font-semibold text-fg"
-                  >
+                  <label htmlFor="confirmPassword" className={labelClass}>
                     Confirm Password
                   </label>
 
                   <div className="relative">
-                    <LockKeyhole
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
-                    />
+                    <LockKeyhole size={18} className={iconClass} />
 
                     <input
                       id="confirmPassword"
@@ -242,7 +319,7 @@ export default function VendorRegisterPage() {
                       placeholder="Confirm password"
                       required
                       minLength={8}
-                      className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      className={inputClass}
                     />
                   </div>
                 </div>
@@ -263,12 +340,23 @@ export default function VendorRegisterPage() {
                 </span>
               </label>
 
+              {/* Error */}
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+                >
+                  {error}
+                </div>
+              )}
+
               {/* Register Button */}
               <button
                 type="submit"
-                className="h-12 w-full rounded-xl bg-primary px-5 text-sm font-bold text-dark-1 transition hover:-translate-y-0.5 hover:opacity-90"
+                disabled={loading}
+                className="h-12 w-full rounded-xl bg-primary px-5 text-sm font-bold text-dark-1 transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create Vendor Account
+                {loading ? "Creating account..." : "Create Vendor Account"}
               </button>
             </form>
 
@@ -287,12 +375,6 @@ export default function VendorRegisterPage() {
               </Link>
             </div>
           </div>
-
-          {/* Footer */}
-          <p className="mt-6 text-center text-xs text-muted">
-            © {new Date().getFullYear()} Aarambha Courier & Transport Service
-            Pvt. Ltd.
-          </p>
         </div>
       </div>
     </main>

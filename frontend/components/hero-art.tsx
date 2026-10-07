@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -20,9 +19,10 @@ import {
 
 /* =========================================================
    HERO IMAGE
+   File location: public/images/hero.jpg
    ========================================================= */
 
-const HERO_IMAGE = "/images/hero.png";
+const HERO_IMAGE = "/images/hero.jpg";
 
 /* =========================================================
    HERO ART
@@ -199,7 +199,7 @@ function HeroImage() {
           <span>
             Add{" "}
             <code className="rounded bg-dark-1/5 px-1.5 py-0.5">
-              public/images/hero.png
+              public{HERO_IMAGE}
             </code>
           </span>
         </div>

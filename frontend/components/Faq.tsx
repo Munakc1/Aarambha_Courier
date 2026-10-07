@@ -1,112 +1,171 @@
-type Item = { q: string; a: string };
 
-const left: Item[] = [
+import Link from "next/link";
+import { ArrowRight, Plus } from "lucide-react";
+
+type FAQItem = {
+  question: string;
+  answer: string;
+};
+
+const faqItems: FAQItem[] = [
   {
-    q: "How does COD settlement work?",
-    a: "We collect the payment from your customer at delivery and transfer the settled amount to your account on the agreed settlement schedule.",
+    question: "How does COD settlement work?",
+    answer:
+      "After successful delivery and collection, COD amounts are settled with the vendor according to the agreed settlement schedule and operational process.",
   },
   {
-    q: "How can I track my parcel?",
-    a: "Enter your tracking number on our website to see real-time status updates from pickup to delivery.",
+    question: "How can I track my parcel?",
+    answer:
+      "Enter your Aarambha tracking number on the Track Shipment page to check the available status and tracking information for your parcel.",
   },
   {
-    q: "How long does delivery take?",
-    a: "Delivery time depends on the destination. Major cities are usually the fastest, while rural areas may take a little longer.",
+    question: "How long does delivery take?",
+    answer:
+      "Delivery time depends on the pickup location, destination, service type, route, and operational conditions. Contact Aarambha for an estimated delivery timeline.",
+  },
+  {
+    question: "How do I register as a vendor?",
+    answer:
+      "Online sellers and businesses can contact Aarambha to discuss vendor registration, parcel pickup, COD, delivery handling, and other courier requirements.",
+  },
+  {
+    question: "Do you offer pickup service?",
+    answer:
+      "Yes. Aarambha provides pickup support for eligible vendors and customers. Pickup availability depends on the location, route, and service requirements.",
+  },
+  {
+    question: "Do you deliver outside Nepal?",
+    answer:
+      "Aarambha provides international courier inquiry support. Availability, pricing, documentation, and delivery options depend on the destination and shipment requirements.",
   },
 ];
 
-const right: Item[] = [
-  {
-    q: "How do I register as a vendor?",
-    a: "Create a vendor account, submit your business details, and our team will verify and activate your account.",
-  },
-  {
-    q: "Do you offer pickup service?",
-    a: "Yes. We pick up parcels from your home, shop or warehouse and deliver them safely to the destination.",
-  },
-  {
-    q: "Do you deliver outside Nepal?",
-    a: "Yes. Our international courier service covers worldwide delivery with customs clearance and global tracking support.",
-  },
-];
+export default function HomeFAQ() {
+  const leftFAQs = faqItems.slice(0, 3);
+  const rightFAQs = faqItems.slice(3, 6);
 
-function FaqItem({ q, a }: Item) {
-  return (
-    <details className="group rounded-lg border border-hairline bg-white-soft shadow-sm dark:bg-surface">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-3.5 text-sm font-semibold text-fg [&::-webkit-details-marker]:hidden">
-        {q}
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.4"
-          strokeLinecap="round"
-          aria-hidden="true"
-          className="shrink-0 transition-transform duration-200 group-open:rotate-45"
-        >
-          <path d="M12 5v14M5 12h14" />
-        </svg>
-      </summary>
-      <p className="px-5 pb-4 text-sm leading-relaxed text-muted">{a}</p>
-    </details>
-  );
-}
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  };
 
-export default function Faq() {
   return (
     <section
-      id="faq"
       aria-labelledby="faq-heading"
-      className="bg-app px-4 py-12 sm:px-6 lg:px-8"
+      className="relative overflow-hidden bg-white px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
     >
-      <div className="mx-auto max-w-7xl">
+      {/* SEO FAQ Schema */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqSchema),
+        }}
+      />
+
+      {/* Background decoration */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-0 h-64 w-[600px] -translate-x-1/2 rounded-full bg-[#fafafa] blur-3xl"
+      />
+
+      <div className="relative mx-auto max-w-5xl">
+        {/* Heading */}
         <div className="text-center">
-          <p className="text-sm font-semibold tracking-wide text-primary">
-            FREQUENTLY ASKED QUESTIONS
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f2a900] sm:text-[11px]">
+            Frequently Asked Questions
           </p>
+
           <h2
             id="faq-heading"
-            className="mt-1 text-3xl font-extrabold text-fg sm:text-4xl"
+            className="mt-1 text-2xl font-extrabold tracking-tight text-[#111111] sm:text-3xl lg:text-[36px]"
           >
-            Have Questions? We’ve Got Answers.
+            Have Questions? We&apos;ve Got Answers.
           </h2>
         </div>
 
-        <div className="mt-6 grid items-start gap-3 md:grid-cols-2 md:gap-x-6">
-          <div className="space-y-3">
-            {left.map((i) => (
-              <FaqItem key={i.q} {...i} />
+        {/* FAQ Grid */}
+        <div className="mt-7 grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-x-7 md:gap-y-2.5">
+          {/* Left Column */}
+          <div className="space-y-2.5">
+            {leftFAQs.map((item) => (
+              <details
+                key={item.question}
+                className="group border border-[#e5e5e5] bg-white transition-all duration-200 hover:border-[#cfcfcf] hover:shadow-sm"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 sm:px-5 sm:py-3 [&::-webkit-details-marker]:hidden">
+                  <span className="text-[12px] font-semibold text-[#222] sm:text-[13px]">
+                    {item.question}
+                  </span>
+
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-[#222] transition-transform duration-200 group-open:rotate-45"
+                    aria-hidden="true"
+                  >
+                    <Plus size={15} strokeWidth={2} />
+                  </span>
+                </summary>
+
+                <div className="border-t border-[#eeeeee] px-4 py-3 sm:px-5">
+                  <p className="text-xs leading-6 text-[#707070] sm:text-sm">
+                    {item.answer}
+                  </p>
+                </div>
+              </details>
             ))}
           </div>
-          <div className="space-y-3">
-            {right.map((i) => (
-              <FaqItem key={i.q} {...i} />
+
+          {/* Right Column */}
+          <div className="space-y-2.5">
+            {rightFAQs.map((item) => (
+              <details
+                key={item.question}
+                className="group border border-[#e5e5e5] bg-white transition-all duration-200 hover:border-[#cfcfcf] hover:shadow-sm"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 sm:px-5 sm:py-3 [&::-webkit-details-marker]:hidden">
+                  <span className="text-[12px] font-semibold text-[#222] sm:text-[13px]">
+                    {item.question}
+                  </span>
+
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-[#222] transition-transform duration-200 group-open:rotate-45"
+                    aria-hidden="true"
+                  >
+                    <Plus size={15} strokeWidth={2} />
+                  </span>
+                </summary>
+
+                <div className="border-t border-[#eeeeee] px-4 py-3 sm:px-5">
+                  <p className="text-xs leading-6 text-[#707070] sm:text-sm">
+                    {item.answer}
+                  </p>
+                </div>
+              </details>
             ))}
           </div>
         </div>
 
-        <div className="mt-4 flex justify-center">
-          <a
-            href="/faqs"
-            className="inline-flex items-center gap-3 rounded-lg border border-hairline bg-white-soft px-8 py-2.5 text-sm font-semibold uppercase text-fg shadow-sm transition-colors hover:border-primary dark:bg-surface"
+        {/* View All FAQs */}
+        <div className="mt-5 flex justify-center">
+          <Link
+            href="/faq"
+            className="group inline-flex items-center gap-2 border border-[#d8d8d8] bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#333] transition-all duration-200 hover:border-[#111] hover:bg-[#111] hover:text-white sm:px-5 sm:py-2.5 sm:text-[11px]"
           >
             View All FAQs
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M5 12h14M13 6l6 6-6 6" />
-            </svg>
-          </a>
+
+            <ArrowRight
+              size={13}
+              strokeWidth={2}
+              className="transition-transform duration-200 group-hover:translate-x-1"
+            />
+          </Link>
         </div>
       </div>
     </section>

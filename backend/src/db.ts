@@ -1,8 +1,18 @@
 import mongoose from "mongoose";
 
-// how this works: opens the Mongoose connection. Call once at boot.
-export async function connectDb(uri: string): Promise<void> {
-  mongoose.set("strictQuery", true);
-  await mongoose.connect(uri);
-  console.log("✔ MongoDB connected");
+export async function connectDatabase(): Promise<void> {
+  const mongoUri = process.env.MONGO_URI;
+
+  if (!mongoUri) {
+    throw new Error("MONGO_URI is not configured.");
+  }
+
+  try {
+    await mongoose.connect(mongoUri);
+
+    console.log("MongoDB connected successfully.");
+  } catch (error) {
+    console.error("MongoDB connection failed:", error);
+    process.exit(1);
+  }
 }
