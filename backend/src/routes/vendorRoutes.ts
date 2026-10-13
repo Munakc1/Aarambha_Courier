@@ -42,8 +42,9 @@ router.post(
 );
 
 router.post(
-  "/reset-password",
+  "/reset-password/:token",
   resetVendorPassword
 );
+
 
 export default router;

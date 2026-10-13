@@ -36,3 +36,100 @@ src/
 ├─ models/         Mongoose models (User, Note)
 └─ routes/         auth + notes (the example CRUD resource)
 ```
+
+
+Website feature/page	Frontend	Backend	Database
+Home	✅	❌	❌
+Services overview	✅	❌	❌
+E-commerce Logistics	✅	❌	❌
+Domestic Courier	✅	❌	❌
+International Courier	✅	❌	❌
+About	✅	❌	❌
+Contact information	✅	❌	❌
+FAQ display	✅	Optional	Optional
+Blog listing	✅	✅	✅
+Blog detail	✅	✅	✅
+Admin/CMS	✅	✅	✅
+<!-- Vendor Register	✅	✅	✅
+Vendor Login	✅	✅	✅
+Vendor Dashboard	✅	✅	✅
+Forgot Password	✅	✅	✅ -->
+Track Shipment	✅	YES	Usually external/current system
+Price Calculator	✅	YES	✅
+Contact form	✅	YES	✅
+Vendor inquiry	✅	YES	✅
+Pickup request	✅	YES	✅
+International quote	✅	YES	✅
+Newsletter/contact subscriptions	✅	Optional	✅
+WhatsApp buttons	✅	❌	❌
+Google Maps	✅	❌	❌
+SEO metadata	✅	Optional CMS	Optional
+Sitemap/robots	✅	❌	❌
+Media management	✅	✅	✅
+Notices/updates	✅	✅	✅
+
+
+
+backend/
+├── src/
+│   ├── config/
+│   │   ├── env.ts
+│   │   ├── db.ts
+│   │   └── cors.ts
+│   │
+│   ├── models/
+│   │   ├── Vendor.ts
+│   │   ├── Admin.ts
+│   │   ├── BlogPost.ts
+│   │   ├── FAQ.ts
+│   │   ├── Inquiry.ts
+│   │   ├── Shipment.ts
+│   │   ├── CalculatorRate.ts
+│   │   ├── Service.ts
+│   │   ├── Notice.ts
+│   │   └── Media.ts
+│   │
+│   ├── controllers/
+│   │   ├── vendorController.ts
+│   │   ├── adminController.ts
+│   │   ├── blogController.ts
+│   │   ├── faqController.ts
+│   │   ├── inquiryController.ts
+│   │   ├── trackingController.ts
+│   │   ├── calculatorController.ts
+│   │   ├── serviceController.ts
+│   │   └── noticeController.ts
+│   │
+│   ├── routes/
+│   │   ├── vendorRoutes.ts
+│   │   ├── adminRoutes.ts
+│   │   ├── blogRoutes.ts
+│   │   ├── faqRoutes.ts
+│   │   ├── inquiryRoutes.ts
+│   │   ├── trackingRoutes.ts
+│   │   ├── calculatorRoutes.ts
+│   │   ├── serviceRoutes.ts
+│   │   └── noticeRoutes.ts
+│   │
+│   ├── middleware/
+│   │   ├── authMiddleware.ts
+│   │   ├── adminMiddleware.ts
+│   │   ├── uploadMiddleware.ts
+│   │   └── errorMiddleware.ts
+│   │
+│   ├── services/
+│   │   ├── trackingService.ts
+│   │   ├── calculatorService.ts
+│   │   ├── emailService.ts
+│   │   └── notificationService.ts
+│   │
+│   ├── utils/
+│   │   ├── jwt.ts
+│   │   ├── validation.ts
+│   │   └── password.ts
+│   │
+│   └── index.ts
+│
+├── .env
+├── package.json
+└── tsconfig.json

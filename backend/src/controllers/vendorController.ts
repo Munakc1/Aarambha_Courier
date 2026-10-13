@@ -9,6 +9,7 @@ import {
   createVendorToken
 } from "../utils/token";
 import { AuthenticatedRequest } from "../middleware/authMiddleware.js";
+import { sendVendorPasswordResetEmail } from "../utils/sendEmail";
 
 function getCookieName(): string {
   return process.env.COOKIE_NAME || "aarambha_vendor_token";
@@ -337,6 +338,7 @@ export async function getCurrentVendor(
 |--------------------------------------------------------------------------
 */
 
+
 export async function forgotVendorPassword(
   req: Request,
   res: Response
@@ -347,7 +349,7 @@ export async function forgotVendorPassword(
     if (!email) {
       res.status(400).json({
         success: false,
-        message: "Email address is required."
+        message: "Email address is required.",
       });
       return;
     }
@@ -357,27 +359,28 @@ export async function forgotVendorPassword(
       .toLowerCase();
 
     const vendor = await Vendor.findOne({
-      email: cleanEmail
+      email: cleanEmail,
     }).select(
       "+resetPasswordToken +resetPasswordExpires"
     );
 
-    /*
-     * Always return the same message.
-     * This prevents exposing whether an email
-     * belongs to an account.
-     */
+    // Always return the same response so that
+    // we don't reveal whether an email exists.
     if (!vendor) {
       res.status(200).json({
         success: true,
         message:
-          "If an account exists for this email, password reset instructions have been generated."
+          "If an account exists for this email, password reset instructions have been sent.",
       });
       return;
     }
 
-    const rawToken = crypto.randomBytes(32).toString("hex");
+    // Generate secure random token.
+    const rawToken = crypto
+      .randomBytes(32)
+      .toString("hex");
 
+    // Store only the hashed token in MongoDB.
     const hashedToken = crypto
       .createHash("sha256")
       .update(rawToken)
@@ -385,41 +388,72 @@ export async function forgotVendorPassword(
 
     vendor.resetPasswordToken = hashedToken;
 
+    // Token expires after 15 minutes.
     vendor.resetPasswordExpires =
       new Date(Date.now() + 15 * 60 * 1000);
 
     await vendor.save();
 
-    /*
-     * Development only.
-     *
-     * In production this token should be sent
-     * through your email service.
-     */
-    console.log(
-      `Vendor password reset token for ${cleanEmail}: ${rawToken}`
-    );
+    // Frontend URL.
+    const frontendUrl =
+      process.env.FRONTEND_URL ||
+      "http://localhost:3000";
+
+    // IMPORTANT:
+    // Send the RAW token to the user.
+    // MongoDB stores only the hashed version.
+    const resetUrl =
+      `${frontendUrl}/vendor/reset-password?token=${encodeURIComponent(rawToken)}`;
+
+    try {
+      await sendVendorPasswordResetEmail(
+        cleanEmail,
+        resetUrl
+      );
+
+      console.log(
+        `Password reset email sent to ${cleanEmail}`
+      );
+    } catch (emailError) {
+      console.error(
+        "Password reset email failed:",
+        emailError
+      );
+
+      // Remove token if email could not be sent.
+      vendor.resetPasswordToken = undefined;
+      vendor.resetPasswordExpires = undefined;
+
+      await vendor.save();
+
+      res.status(500).json({
+        success: false,
+        message:
+          "Unable to send password reset email. Please try again later.",
+      });
+
+      return;
+    }
 
     res.status(200).json({
       success: true,
       message:
-        "If an account exists for this email, password reset instructions have been generated.",
-
-      ...(process.env.NODE_ENV !== "production"
-        ? {
-            developmentResetToken: rawToken
-          }
-        : {})
+        "If an account exists for this email, password reset instructions have been sent.",
     });
   } catch (error) {
-    console.error("Forgot password error:", error);
+    console.error(
+      "Forgot password error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Unable to process password reset request."
+      message:
+        "Unable to process password reset request.",
     });
   }
 }
+
 
 /*
 |--------------------------------------------------------------------------
@@ -432,15 +466,13 @@ export async function resetVendorPassword(
   res: Response
 ): Promise<void> {
   try {
-    const {
-      token,
-      password
-    } = req.body;
+    const { token, password } = req.body;
 
     if (!token || !password) {
       res.status(400).json({
         success: false,
-        message: "Reset token and new password are required."
+        message:
+          "Reset token and new password are required.",
       });
       return;
     }
@@ -448,21 +480,30 @@ export async function resetVendorPassword(
     if (String(password).length < 8) {
       res.status(400).json({
         success: false,
-        message: "Password must be at least 8 characters long."
+        message:
+          "Password must be at least 8 characters long.",
       });
       return;
     }
 
+    /*
+     * Hash the token received from the frontend.
+     */
     const hashedToken = crypto
       .createHash("sha256")
       .update(String(token))
       .digest("hex");
 
+    /*
+     * Find vendor using:
+     * 1. matching hashed token
+     * 2. non-expired token
+     */
     const vendor = await Vendor.findOne({
       resetPasswordToken: hashedToken,
       resetPasswordExpires: {
-        $gt: new Date()
-      }
+        $gt: new Date(),
+      },
     }).select(
       "+password +resetPasswordToken +resetPasswordExpires"
     );
@@ -471,15 +512,21 @@ export async function resetVendorPassword(
       res.status(400).json({
         success: false,
         message:
-          "Password reset token is invalid or has expired."
+          "Password reset token is invalid or has expired.",
       });
       return;
     }
 
+    /*
+     * Hash and save the new password.
+     */
     vendor.password = await hashPassword(
       String(password)
     );
 
+    /*
+     * Invalidate the reset token immediately.
+     */
     vendor.resetPasswordToken = undefined;
     vendor.resetPasswordExpires = undefined;
 
@@ -488,14 +535,18 @@ export async function resetVendorPassword(
     res.status(200).json({
       success: true,
       message:
-        "Password reset successfully. Please sign in with your new password."
+        "Password reset successfully. Please sign in with your new password.",
     });
   } catch (error) {
-    console.error("Reset password error:", error);
+    console.error(
+      "Reset password error:",
+      error
+    );
 
     res.status(500).json({
       success: false,
-      message: "Unable to reset password."
+      message:
+        "Unable to reset password.",
     });
   }
 }

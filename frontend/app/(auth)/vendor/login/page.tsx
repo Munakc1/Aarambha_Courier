@@ -3,8 +3,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import {
+  FormEvent,
+  useEffect,
+  useState,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
 import {
   ArrowLeft,
   Eye,
@@ -13,23 +20,23 @@ import {
   Mail,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5000"
+).replace(/\/+$/, "");
 
 export default function VendorLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  /*
-   * Show a success message after registration.
-   *
-   * Example:
-   * /vendor/login?registered=true
-   */
+  // Show success message after registration
+  // Example: /vendor/login?registered=true
   useEffect(() => {
     if (searchParams.get("registered") === "true") {
       setSuccess(
@@ -38,7 +45,9 @@ export default function VendorLoginPage() {
     }
   }, [searchParams]);
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     setError("");
@@ -51,15 +60,24 @@ export default function VendorLoginPage() {
       .trim()
       .toLowerCase();
 
-    const password = String(form.get("password") ?? "");
+    const password = String(
+      form.get("password") ?? ""
+    );
 
     const remember = form.get("remember") === "on";
 
-    /*
-     * Frontend validation
-     */
+    // -----------------------------------------
+    // FRONTEND VALIDATION
+    // -----------------------------------------
+
     if (!email) {
       setError("Please enter your email address.");
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
       setLoading(false);
       return;
     }
@@ -70,56 +88,88 @@ export default function VendorLoginPage() {
       return;
     }
 
-    if (!API_URL) {
+    if (password.length < 8) {
       setError(
-        "API configuration is missing. Please check NEXT_PUBLIC_API_URL."
+        "Password must be at least 8 characters long."
       );
       setLoading(false);
       return;
     }
 
+    // -----------------------------------------
+    // LOGIN API REQUEST
+    // -----------------------------------------
+
     try {
-      const response = await fetch(`${API_URL}/api/vendor/login`, {
-        method: "POST",
+      const response = await fetch(
+        `${API_URL}/api/vendor/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            email,
+            password,
+            remember,
+          }),
+        }
+      );
 
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const contentType =
+        response.headers.get("content-type") || "";
 
-        /*
-         * Required when the backend uses
-         * an HTTP-only authentication cookie.
-         */
-        credentials: "include",
+      let data: {
+        message?: string;
+        error?: string;
+        success?: boolean;
+        vendor?: unknown;
+      } | null = null;
 
-        body: JSON.stringify({
-          email,
-          password,
-          remember,
-        }),
-      });
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
 
-      const data = await response.json().catch(() => null);
+        data = {
+          message: text || undefined,
+        };
+      }
 
       if (!response.ok) {
         throw new Error(
-          data?.message || "Invalid email or password."
+          data?.message ||
+            data?.error ||
+            "Invalid email or password."
         );
       }
 
-      /*
-       * The backend should set the authentication cookie.
-       *
-       * We don't store the token in localStorage.
-       */
+      // -----------------------------------------
+      // LOGIN SUCCESS
+      // -----------------------------------------
+      //
+      // The backend should set the authentication
+      // cookie. We intentionally do not store
+      // authentication tokens in localStorage.
+      //
 
-      router.push("/vendor/dashboard");
+      router.push("/vendor/dashboard/");
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again."
-      );
+      console.error("Vendor login error:", err);
+
+      if (err instanceof TypeError) {
+        setError(
+          "Unable to connect to the server. Please make sure the backend is running on http://localhost:5000."
+        );
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -129,23 +179,24 @@ export default function VendorLoginPage() {
     <main className="min-h-screen bg-app">
       <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
         <div className="w-full max-w-md">
-
           {/* Back to Home */}
           <Link
             href="/"
             className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-accent-orange"
           >
-            <ArrowLeft size={17} />
+            <ArrowLeft
+              size={17}
+              aria-hidden="true"
+            />
             Back to Home
           </Link>
 
           {/* Login Card */}
           <div className="rounded-3xl border border-hairline bg-white-soft p-6 shadow-xl dark:bg-surface sm:p-8">
-
             {/* Logo */}
             <Link
               href="/"
-              aria-label="Aarambha Courier — home"
+              aria-label="Aarambha Courier home"
               className="group flex justify-center"
             >
               <Image
@@ -169,7 +220,8 @@ export default function VendorLoginPage() {
               </h1>
 
               <p className="mt-2 text-sm leading-6 text-muted">
-                Sign in to manage your shipments and vendor account.
+                Sign in to manage your shipments and
+                vendor account.
               </p>
             </div>
 
@@ -178,7 +230,6 @@ export default function VendorLoginPage() {
               onSubmit={handleSubmit}
               className="mt-8 space-y-5"
             >
-
               {/* Email */}
               <div>
                 <label
@@ -236,9 +287,14 @@ export default function VendorLoginPage() {
                   <input
                     id="password"
                     name="password"
-                    type={showPassword ? "text" : "password"}
+                    type={
+                      showPassword
+                        ? "text"
+                        : "password"
+                    }
                     autoComplete="current-password"
                     placeholder="Enter your password"
+                    minLength={8}
                     required
                     disabled={loading}
                     className="h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-12 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
@@ -248,7 +304,9 @@ export default function VendorLoginPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setShowPassword((previous) => !previous)
+                      setShowPassword(
+                        (previous) => !previous
+                      )
                     }
                     disabled={loading}
                     aria-label={
@@ -260,9 +318,15 @@ export default function VendorLoginPage() {
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-muted transition hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {showPassword ? (
-                      <EyeOff size={18} />
+                      <EyeOff
+                        size={18}
+                        aria-hidden="true"
+                      />
                     ) : (
-                      <Eye size={18} />
+                      <Eye
+                        size={18}
+                        aria-hidden="true"
+                      />
                     )}
                   </button>
                 </div>
@@ -277,13 +341,14 @@ export default function VendorLoginPage() {
                   className="h-4 w-4 rounded border-hairline accent-primary disabled:cursor-not-allowed"
                 />
 
-                Remember me
+                <span>Remember me</span>
               </label>
 
               {/* Success Message */}
               {success && (
                 <div
                   role="status"
+                  aria-live="polite"
                   className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700"
                 >
                   {success}
@@ -307,7 +372,9 @@ export default function VendorLoginPage() {
                 disabled={loading}
                 className="h-12 w-full rounded-xl bg-primary px-5 text-sm font-bold text-dark-1 transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Signing in..." : "Sign In"}
+                {loading
+                  ? "Signing in..."
+                  : "Sign In"}
               </button>
             </form>
 
@@ -330,3 +397,4 @@ export default function VendorLoginPage() {
     </main>
   );
 }
+ 

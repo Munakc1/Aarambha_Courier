@@ -71,10 +71,6 @@ app.get("/api/health", (_req, res) => {
 |--------------------------------------------------------------------------
 */
 
-app.use(
-  "/api/vendor",
-  vendorRoutes
-);
 
 app.use("/api/vendor", vendorRoutes);
 

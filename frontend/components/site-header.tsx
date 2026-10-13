@@ -4,7 +4,21 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bike, ChevronDown, Menu, User, X } from "lucide-react";
+import {
+  Bike,
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Menu,
+  PackageCheck,
+  Repeat,
+  ShoppingBag,
+  Truck,
+  User,
+  Wallet,
+  X,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 type NavLink = {
   label: string;
@@ -12,67 +26,48 @@ type NavLink = {
   dropdown?: boolean;
 };
 
-const SERVICES = [
+const SERVICES: { label: string; href: string; icon: LucideIcon }[] = [
   {
     label: "E-commerce Logistics",
     href: "/services/ecommerce-logistics",
+    icon: ShoppingBag,
   },
   {
     label: "Domestic Courier",
     href: "/services/domestic-courier",
+    icon: Truck,
   },
   {
     label: "COD Support",
     href: "/services/cod-support",
+    icon: Wallet,
   },
   {
     label: "Pickup Service",
     href: "/services/pickup-service",
+    icon: PackageCheck,
   },
   {
     label: "Exchange & Return",
     href: "/services/exchange-return",
+    icon: Repeat,
   },
   {
     label: "International Courier",
     href: "/services/international-courier",
+    icon: Globe,
   },
 ];
 
 const LINKS: NavLink[] = [
-  {
-    label: "Home",
-    href: "/",
-  },
-  {
-    label: "Services",
-    href: "/services",
-    dropdown: true,
-  },
-  {
-    label: "Track Shipment",
-    href: "/track",
-  },
-  {
-    label: "Calculator",
-    href: "/calculator",
-  },
-  {
-    label: "Branches",
-    href: "/branches",
-  },
-  {
-    label: "Blog / News",
-    href: "/blog",
-  },
-  {
-    label: "About Us",
-    href: "/about",
-  },
-  {
-    label: "Contact Us",
-    href: "/contact",
-  },
+  { label: "Home", href: "/" },
+  { label: "Services", href: "/services", dropdown: true },
+  { label: "Track Shipment", href: "/track" },
+  { label: "Calculator", href: "/calculator" },
+  { label: "Branches", href: "/branches" },
+  { label: "Blog / News", href: "/blog" },
+  { label: "About Us", href: "/about" },
+  { label: "Contact Us", href: "/contact" },
 ];
 
 export default function SideHeader() {
@@ -84,16 +79,12 @@ export default function SideHeader() {
 
   const servicesRef = useRef<HTMLDivElement>(null);
 
-  /* =========================================================
-     ACTIVE LINK
-  ========================================================= */
+  /* ACTIVE LINK */
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-  /* =========================================================
-     CLOSE MENUS WHEN ROUTE CHANGES
-  ========================================================= */
+  /* CLOSE MENUS WHEN ROUTE CHANGES */
 
   useEffect(() => {
     setMobileOpen(false);
@@ -101,10 +92,7 @@ export default function SideHeader() {
     setMobileServicesOpen(false);
   }, [pathname]);
 
-  /* =========================================================
-     DESKTOP DROPDOWN
-     Outside click + Escape
-  ========================================================= */
+  /* DESKTOP DROPDOWN: outside click + Escape */
 
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
@@ -133,9 +121,7 @@ export default function SideHeader() {
     };
   }, []);
 
-  /* =========================================================
-     PREVENT BACKGROUND SCROLL ON MOBILE
-  ========================================================= */
+  /* PREVENT BACKGROUND SCROLL ON MOBILE */
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -145,18 +131,14 @@ export default function SideHeader() {
     };
   }, [mobileOpen]);
 
-  /* =========================================================
-     NAVIGATION LINK STYLE
-  ========================================================= */
+  /* NAVIGATION LINK STYLE */
 
   const linkClass = (active: boolean) =>
     `relative inline-flex items-center gap-1.5 whitespace-nowrap py-2 text-[14px] font-medium tracking-[-0.01em] transition-all duration-200 ${
       active ? "text-primary" : "text-white/90 hover:text-primary"
     }`;
 
-  /* =========================================================
-     WHATSAPP CTA
-  ========================================================= */
+  /* WHATSAPP CTA */
 
   const whatsappNumber = "9779801255799";
 
@@ -195,9 +177,7 @@ export default function SideHeader() {
           2xl:px-16
         "
       >
-        {/* =====================================================
-            LOGO
-        ====================================================== */}
+        {/* LOGO */}
 
         <Link
           href="/"
@@ -229,9 +209,7 @@ export default function SideHeader() {
           />
         </Link>
 
-        {/* =====================================================
-            DESKTOP NAVIGATION
-        ====================================================== */}
+        {/* DESKTOP NAVIGATION */}
 
         <ul
           className="
@@ -245,9 +223,7 @@ export default function SideHeader() {
           {LINKS.map((link) => {
             const active = isActive(link.href);
 
-            /* =================================================
-               SERVICES DROPDOWN
-            ================================================= */
+            /* SERVICES DROPDOWN */
 
             if (link.dropdown) {
               return (
@@ -295,63 +271,76 @@ export default function SideHeader() {
                       )}
                     </button>
 
-                    {/* =================================================
-                        DESKTOP SERVICES DROPDOWN
-                    ================================================== */}
+                    {/* DESKTOP SERVICES DROPDOWN (new design) */}
 
                     {servicesOpen && (
                       <div className="absolute left-1/2 top-full -translate-x-1/2 pt-4">
-                        <ul
-                          role="menu"
-                          className="
-                            w-[285px]
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-white/10
-                            bg-dark-2
-                            py-2
-                            shadow-[0_20px_50px_rgba(0,0,0,0.35)]
-                          "
-                        >
-                          {SERVICES.map((service) => (
-                            <li key={service.href} role="none">
-                              <Link
-                                role="menuitem"
-                                href={service.href}
-                                className="
-                                  group
-                                  flex
-                                  items-center
-                                  px-5
-                                  py-3
-                                  text-[14px]
-                                  text-white/80
-                                  transition-all
-                                  duration-200
-                                  hover:bg-primary/10
-                                  hover:pl-6
-                                  hover:text-primary
-                                "
-                              >
-                                <span
-                                  className="
-                                    mr-3
-                                    h-1.5
-                                    w-1.5
-                                    shrink-0
-                                    rounded-full
-                                    bg-primary/40
-                                    transition-all
-                                    group-hover:bg-primary
-                                  "
-                                />
+                        <div className="relative">
+                          {/* notch arrow */}
+                          <span
+                            aria-hidden="true"
+                            className="absolute -top-1.5 left-1/2 z-10 h-3 w-3 -translate-x-1/2 rotate-45 border-l border-t border-primary/30 bg-dark-2"
+                          />
 
-                                {service.label}
-                              </Link>
-                            </li>
-                          ))}
-                        </ul>
+                          <div className="relative w-[330px] overflow-hidden rounded-2xl border border-primary/20 bg-dark-2 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+                            {/* top accent line */}
+                            <span
+                              aria-hidden="true"
+                              className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent"
+                            />
+
+                            <ul
+                              role="menu"
+                              className="flex flex-col gap-0.5 p-2 pt-3"
+                            >
+                              {SERVICES.map((service) => {
+                                const Icon = service.icon;
+                                const serviceActive = pathname.startsWith(
+                                  service.href
+                                );
+
+                                return (
+                                  <li key={service.href} role="none">
+                                    <Link
+                                      role="menuitem"
+                                      href={service.href}
+                                      className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14px] font-medium transition-all duration-200 hover:bg-white/[0.06] ${
+                                        serviceActive
+                                          ? "bg-white/[0.06] text-primary"
+                                          : "text-white/80 hover:text-white"
+                                      }`}
+                                    >
+                                      {/* left accent bar */}
+                                      <span
+                                        aria-hidden="true"
+                                        className="absolute left-0 top-1/2 h-0 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-all duration-200 group-hover:h-6"
+                                      />
+
+                                      {/* icon tile */}
+                                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-all duration-200 group-hover:bg-primary group-hover:text-dark-1">
+                                        <Icon
+                                          size={17}
+                                          strokeWidth={1.9}
+                                          aria-hidden="true"
+                                        />
+                                      </span>
+
+                                      <span className="flex-1">
+                                        {service.label}
+                                      </span>
+
+                                      <ChevronRight
+                                        size={16}
+                                        aria-hidden="true"
+                                        className="-translate-x-1 text-primary opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100"
+                                      />
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -359,9 +348,7 @@ export default function SideHeader() {
               );
             }
 
-            /* =================================================
-               NORMAL NAVIGATION LINK
-            ================================================== */
+            /* NORMAL NAVIGATION LINK */
 
             return (
               <li key={link.label}>
@@ -393,9 +380,7 @@ export default function SideHeader() {
           })}
         </ul>
 
-        {/* =====================================================
-            DESKTOP ACTIONS
-        ====================================================== */}
+        {/* DESKTOP ACTIONS */}
 
         <div
           className="
@@ -410,9 +395,7 @@ export default function SideHeader() {
             2xl:pl-8
           "
         >
-          {/* =================================================
-              VENDOR LOGIN
-          ================================================== */}
+          {/* VENDOR LOGIN (0.5px white border) */}
 
           <Link
             href="/vendor/login"
@@ -425,8 +408,8 @@ export default function SideHeader() {
               gap-2
               whitespace-nowrap
               rounded-lg
-              border
-              border-white/25
+              border-[0.5px]
+              border-white
               bg-white/[0.03]
               px-4
               text-[13px]
@@ -457,9 +440,7 @@ export default function SideHeader() {
             Vendor Login
           </Link>
 
-          {/* =================================================
-              BOOK A PICKUP (primary CTA)
-          ================================================== */}
+          {/* BOOK A PICKUP (primary CTA) */}
 
           <Link
             href="/book-pickup"
@@ -506,9 +487,7 @@ export default function SideHeader() {
           </Link>
         </div>
 
-        {/* =====================================================
-            MOBILE / TABLET MENU BUTTON
-        ====================================================== */}
+        {/* MOBILE / TABLET MENU BUTTON */}
 
         <button
           type="button"
@@ -543,9 +522,7 @@ export default function SideHeader() {
         </button>
       </nav>
 
-      {/* =======================================================
-          MOBILE / TABLET MENU
-      ======================================================= */}
+      {/* MOBILE / TABLET MENU */}
 
       {mobileOpen && (
         <div
@@ -574,9 +551,7 @@ export default function SideHeader() {
             {LINKS.map((link) => {
               const active = isActive(link.href);
 
-              /* ===============================================
-                 MOBILE SERVICES
-              =============================================== */
+              /* MOBILE SERVICES */
 
               if (link.dropdown) {
                 return (
@@ -612,44 +587,35 @@ export default function SideHeader() {
                     </button>
 
                     {mobileServicesOpen && (
-                      <ul
-                        className="
-                          mb-3
-                          flex
-                          flex-col
-                          rounded-lg
-                          border-l-2
-                          border-primary/40
-                          bg-white/[0.02]
-                          pl-4
-                        "
-                      >
-                        {SERVICES.map((service) => (
-                          <li key={service.href}>
-                            <Link
-                              href={service.href}
-                              className="
-                                block
-                                py-3
-                                text-[14px]
-                                text-white/75
-                                transition-colors
-                                hover:text-primary
-                              "
-                            >
-                              {service.label}
-                            </Link>
-                          </li>
-                        ))}
+                      <ul className="mb-3 flex flex-col gap-1 rounded-xl border border-primary/20 bg-dark-2 p-2">
+                        {SERVICES.map((service) => {
+                          const Icon = service.icon;
+
+                          return (
+                            <li key={service.href}>
+                              <Link
+                                href={service.href}
+                                className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] text-white/80 transition-colors hover:bg-white/[0.06] hover:text-primary"
+                              >
+                                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                                  <Icon
+                                    size={16}
+                                    strokeWidth={1.9}
+                                    aria-hidden="true"
+                                  />
+                                </span>
+                                {service.label}
+                              </Link>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </li>
                 );
               }
 
-              /* ===============================================
-                 NORMAL MOBILE LINK
-              =============================================== */
+              /* NORMAL MOBILE LINK */
 
               return (
                 <li key={link.label} className="border-b border-white/5">
@@ -675,9 +641,7 @@ export default function SideHeader() {
               );
             })}
 
-            {/* =================================================
-                MOBILE ACTIONS
-            ================================================== */}
+            {/* MOBILE ACTIONS */}
 
             <li className="flex flex-col gap-3 pb-6 pt-5">
               {/* Book a Pickup (main action, full width) */}
@@ -716,8 +680,8 @@ export default function SideHeader() {
                     justify-center
                     gap-2
                     rounded-lg
-                    border
-                    border-white/25
+                    border-[0.5px]
+                    border-white
                     bg-white/[0.03]
                     text-[14px]
                     font-semibold

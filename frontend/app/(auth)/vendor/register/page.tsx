@@ -14,10 +14,12 @@ import {
   User,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+).replace(/\/+$/, "");
 
 const inputClass =
-  "h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20";
+  "h-12 w-full rounded-xl border border-hairline bg-app pl-11 pr-4 text-sm text-fg outline-none transition placeholder:text-muted/70 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
 
 const iconClass =
   "absolute left-4 top-1/2 -translate-y-1/2 text-muted";
@@ -34,89 +36,176 @@ export default function VendorRegisterPage() {
     e.preventDefault();
 
     setError("");
+    setLoading(true);
 
     const form = new FormData(e.currentTarget);
 
     const fullName = String(form.get("fullName") ?? "").trim();
-    const businessName = String(form.get("businessName") ?? "").trim();
+
+    const businessName = String(
+      form.get("businessName") ?? ""
+    ).trim();
+
     const email = String(form.get("email") ?? "")
       .trim()
       .toLowerCase();
-    const phone = String(form.get("phone") ?? "").trim();
-    const address = String(form.get("address") ?? "").trim();
-    const password = String(form.get("password") ?? "");
-    const confirmPassword = String(form.get("confirmPassword") ?? "");
-    const terms = form.get("terms") === "on";
 
-    // Frontend validation
-    if (!fullName || !businessName || !email || !phone || !address) {
+    const phone = String(form.get("phone") ?? "")
+      .trim()
+      .replace(/\s+/g, "");
+
+    const address = String(
+      form.get("address") ?? ""
+    ).trim();
+
+    const password = String(form.get("password") ?? "");
+
+    const confirmPassword = String(
+      form.get("confirmPassword") ?? ""
+    );
+
+    const termsAccepted = form.get("terms") === "on";
+
+    // -----------------------------------------
+    // FRONTEND VALIDATION
+    // -----------------------------------------
+
+    if (
+      !fullName ||
+      !businessName ||
+      !email ||
+      !phone ||
+      !address ||
+      !password ||
+      !confirmPassword
+    ) {
       setError("Please fill in all required fields.");
+      setLoading(false);
+      return;
+    }
+
+    if (fullName.length < 2) {
+      setError("Please enter a valid full name.");
+      setLoading(false);
+      return;
+    }
+
+    if (businessName.length < 2) {
+      setError("Please enter a valid business name.");
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid email address.");
+      setLoading(false);
+      return;
+    }
+
+    // Nepal mobile number:
+    // 98XXXXXXXX
+    // 97XXXXXXXX
+    // 96XXXXXXXX
+    if (!/^9[678]\d{8}$/.test(phone)) {
+      setError(
+        "Please enter a valid Nepal mobile number, for example 98XXXXXXXX."
+      );
+      setLoading(false);
       return;
     }
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
+      setLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      setLoading(false);
       return;
     }
 
-    // Nepal mobile number validation
-    if (!/^9[678]\d{8}$/.test(phone)) {
-      setError("Please enter a valid Nepal mobile number.");
+    if (!termsAccepted) {
+      setError(
+        "Please accept the vendor terms and conditions."
+      );
+      setLoading(false);
       return;
     }
 
-    if (!terms) {
-      setError("Please accept the vendor terms and conditions.");
-      return;
-    }
-
-    if (!API_URL) {
-      setError("API configuration is missing.");
-      return;
-    }
-
-    setLoading(true);
+    // -----------------------------------------
+    // API REQUEST
+    // -----------------------------------------
 
     try {
-      const response = await fetch(`${API_URL}/api/vendor/register`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          fullName,
-          businessName,
-          email,
-          phone,
-          address,
-          password,
-        }),
-      });
+      const response = await fetch(
+        `${API_URL}/api/vendor/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            fullName,
+            businessName,
+            email,
+            phone,
+            address,
+            password,
+          }),
+        }
+      );
 
-      const data = await response.json().catch(() => null);
+      const contentType =
+        response.headers.get("content-type") || "";
+
+      let data: {
+        message?: string;
+        error?: string;
+        success?: boolean;
+        vendor?: unknown;
+      } | null = null;
+
+      if (contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+
+        data = {
+          message: text || undefined,
+        };
+      }
 
       if (!response.ok) {
         throw new Error(
-          data?.message || "Unable to create vendor account."
+          data?.message ||
+            data?.error ||
+            `Registration failed (${response.status}).`
         );
       }
 
-      // Registration successful.
-      // Backend can either automatically log the vendor in
-      // or simply return success.
+      // -----------------------------------------
+      // SUCCESS
+      // -----------------------------------------
+
       router.push("/vendor/login?registered=true");
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Please try again."
-      );
+      console.error("Vendor registration error:", err);
+
+      if (err instanceof TypeError) {
+        setError(
+          "Unable to connect to the server. Please make sure the backend is running on http://localhost:5000."
+        );
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Something went wrong. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -140,7 +229,7 @@ export default function VendorRegisterPage() {
             {/* Logo */}
             <Link
               href="/"
-              aria-label="Aarambha Courier — home"
+              aria-label="Aarambha Courier home"
               className="group flex justify-center"
             >
               <Image
@@ -164,22 +253,33 @@ export default function VendorRegisterPage() {
               </h1>
 
               <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-muted">
-                Register your business with Aarambha Courier to manage your
-                shipments and deliveries.
+                Register your business with Aarambha Courier to
+                manage your shipments and deliveries.
               </p>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="mt-8 space-y-5"
+            >
               {/* Full Name + Business Name */}
               <div className="grid gap-5 sm:grid-cols-2">
+                {/* Full Name */}
                 <div>
-                  <label htmlFor="fullName" className={labelClass}>
+                  <label
+                    htmlFor="fullName"
+                    className={labelClass}
+                  >
                     Full Name
                   </label>
 
                   <div className="relative">
-                    <User size={18} className={iconClass} />
+                    <User
+                      size={18}
+                      className={iconClass}
+                      aria-hidden="true"
+                    />
 
                     <input
                       id="fullName"
@@ -188,25 +288,36 @@ export default function VendorRegisterPage() {
                       autoComplete="name"
                       placeholder="Your full name"
                       required
+                      disabled={loading}
                       className={inputClass}
                     />
                   </div>
                 </div>
 
+                {/* Business Name */}
                 <div>
-                  <label htmlFor="businessName" className={labelClass}>
+                  <label
+                    htmlFor="businessName"
+                    className={labelClass}
+                  >
                     Business Name
                   </label>
 
                   <div className="relative">
-                    <Building2 size={18} className={iconClass} />
+                    <Building2
+                      size={18}
+                      className={iconClass}
+                      aria-hidden="true"
+                    />
 
                     <input
                       id="businessName"
                       name="businessName"
                       type="text"
+                      autoComplete="organization"
                       placeholder="Your business name"
                       required
+                      disabled={loading}
                       className={inputClass}
                     />
                   </div>
@@ -215,13 +326,21 @@ export default function VendorRegisterPage() {
 
               {/* Email + Phone */}
               <div className="grid gap-5 sm:grid-cols-2">
+                {/* Email */}
                 <div>
-                  <label htmlFor="email" className={labelClass}>
+                  <label
+                    htmlFor="email"
+                    className={labelClass}
+                  >
                     Email Address
                   </label>
 
                   <div className="relative">
-                    <Mail size={18} className={iconClass} />
+                    <Mail
+                      size={18}
+                      className={iconClass}
+                      aria-hidden="true"
+                    />
 
                     <input
                       id="email"
@@ -230,18 +349,27 @@ export default function VendorRegisterPage() {
                       autoComplete="email"
                       placeholder="you@example.com"
                       required
+                      disabled={loading}
                       className={inputClass}
                     />
                   </div>
                 </div>
 
+                {/* Phone */}
                 <div>
-                  <label htmlFor="phone" className={labelClass}>
+                  <label
+                    htmlFor="phone"
+                    className={labelClass}
+                  >
                     Phone Number
                   </label>
 
                   <div className="relative">
-                    <Phone size={18} className={iconClass} />
+                    <Phone
+                      size={18}
+                      className={iconClass}
+                      aria-hidden="true"
+                    />
 
                     <input
                       id="phone"
@@ -253,6 +381,7 @@ export default function VendorRegisterPage() {
                       pattern="9[678][0-9]{8}"
                       maxLength={10}
                       required
+                      disabled={loading}
                       className={inputClass}
                     />
                   </div>
@@ -261,20 +390,28 @@ export default function VendorRegisterPage() {
 
               {/* Address */}
               <div>
-                <label htmlFor="address" className={labelClass}>
+                <label
+                  htmlFor="address"
+                  className={labelClass}
+                >
                   Business Address
                 </label>
 
                 <div className="relative">
-                  <Building2 size={18} className={iconClass} />
+                  <Building2
+                    size={18}
+                    className={iconClass}
+                    aria-hidden="true"
+                  />
 
                   <input
                     id="address"
                     name="address"
                     type="text"
-                    placeholder="Enter your business address"
                     autoComplete="street-address"
+                    placeholder="Enter your business address"
                     required
+                    disabled={loading}
                     className={inputClass}
                   />
                 </div>
@@ -282,13 +419,21 @@ export default function VendorRegisterPage() {
 
               {/* Password + Confirm Password */}
               <div className="grid gap-5 sm:grid-cols-2">
+                {/* Password */}
                 <div>
-                  <label htmlFor="password" className={labelClass}>
+                  <label
+                    htmlFor="password"
+                    className={labelClass}
+                  >
                     Password
                   </label>
 
                   <div className="relative">
-                    <LockKeyhole size={18} className={iconClass} />
+                    <LockKeyhole
+                      size={18}
+                      className={iconClass}
+                      aria-hidden="true"
+                    />
 
                     <input
                       id="password"
@@ -296,20 +441,29 @@ export default function VendorRegisterPage() {
                       type="password"
                       autoComplete="new-password"
                       placeholder="Create password"
-                      required
                       minLength={8}
+                      required
+                      disabled={loading}
                       className={inputClass}
                     />
                   </div>
                 </div>
 
+                {/* Confirm Password */}
                 <div>
-                  <label htmlFor="confirmPassword" className={labelClass}>
+                  <label
+                    htmlFor="confirmPassword"
+                    className={labelClass}
+                  >
                     Confirm Password
                   </label>
 
                   <div className="relative">
-                    <LockKeyhole size={18} className={iconClass} />
+                    <LockKeyhole
+                      size={18}
+                      className={iconClass}
+                      aria-hidden="true"
+                    />
 
                     <input
                       id="confirmPassword"
@@ -317,8 +471,9 @@ export default function VendorRegisterPage() {
                       type="password"
                       autoComplete="new-password"
                       placeholder="Confirm password"
-                      required
                       minLength={8}
+                      required
+                      disabled={loading}
                       className={inputClass}
                     />
                   </div>
@@ -331,12 +486,13 @@ export default function VendorRegisterPage() {
                   type="checkbox"
                   name="terms"
                   required
+                  disabled={loading}
                   className="mt-1 h-4 w-4 shrink-0 rounded border-hairline accent-primary"
                 />
 
                 <span className="text-xs leading-5 text-muted">
-                  I agree to the vendor terms and conditions and confirm that
-                  the information provided is accurate.
+                  I agree to the vendor terms and conditions and
+                  confirm that the information provided is accurate.
                 </span>
               </label>
 
@@ -344,6 +500,7 @@ export default function VendorRegisterPage() {
               {error && (
                 <div
                   role="alert"
+                  aria-live="polite"
                   className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
                 >
                   {error}
@@ -356,7 +513,9 @@ export default function VendorRegisterPage() {
                 disabled={loading}
                 className="h-12 w-full rounded-xl bg-primary px-5 text-sm font-bold text-dark-1 transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? "Creating account..." : "Create Vendor Account"}
+                {loading
+                  ? "Creating account..."
+                  : "Create Vendor Account"}
               </button>
             </form>
 

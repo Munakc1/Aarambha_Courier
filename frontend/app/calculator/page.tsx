@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Calculator,
   ChevronDown,
@@ -10,15 +11,35 @@ import {
   ShieldCheck,
   ArrowRight,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 
 /* -------------------------------------------------------------------------- */
-/*                              TYPES                                         */
+/* TYPES                                                                      */
 /* -------------------------------------------------------------------------- */
 
 type ValleyType = "inside" | "outside";
-type DeliveryMode = "door-to-door" | "door-to-branch";
+
+type DeliveryMode =
+  | "door-to-door"
+  | "door-to-branch";
+
+type DeliveryType =
+  | "regular"
+  | "scheduled"
+  | "priority";
+
 type CodOption = "yes" | "no";
+
+type ParcelType =
+  | "parcel"
+  | "document"
+  | "fragile";
+
+type ServiceType =
+  | "standard"
+  | "express"
+  | "same-day";
 
 type DeliveryRule = {
   baseCharge: number;
@@ -35,7 +56,17 @@ type PricingConfig = {
     "door-to-branch": number;
   };
 
-  services: Record<string, number>;
+  deliveryTypes: {
+    regular: number;
+    scheduled: number;
+    priority: number;
+  };
+
+  services: {
+    standard: number;
+    express: number;
+    "same-day": number;
+  };
 
   cod: {
     fixed: number;
@@ -43,30 +74,22 @@ type PricingConfig = {
   };
 
   specialRules: {
-    fragile: number;
-    document: number;
     parcel: number;
+    document: number;
+    fragile: number;
   };
 };
 
 /* -------------------------------------------------------------------------- */
-/*                       ADMIN-MANAGEABLE CONFIG                              */
+/* FRONTEND PRICING CONFIG                                                    */
 /* -------------------------------------------------------------------------- */
 
 /**
- * This pricing object is intentionally kept separate from the UI.
+ * Frontend-only pricing configuration.
  *
- * Later these values can come from:
- * - Admin dashboard
- * - CMS
- * - Database
- * - API
- *
- * The calculator UI does not need to change.
- *
- * IMPORTANT:
- * These are example values for development.
- * Replace them with Aarambha's official tariff before production.
+ * These are development/example rates.
+ * Replace them with Aarambha's officially approved rates
+ * before publishing the calculator to production.
  */
 
 const pricingConfig: PricingConfig = {
@@ -87,6 +110,12 @@ const pricingConfig: PricingConfig = {
     "door-to-branch": 0,
   },
 
+  deliveryTypes: {
+    regular: 0,
+    scheduled: 50,
+    priority: 100,
+  },
+
   services: {
     standard: 0,
     express: 80,
@@ -99,17 +128,23 @@ const pricingConfig: PricingConfig = {
   },
 
   specialRules: {
-    fragile: 50,
-    document: 0,
     parcel: 0,
+    document: 0,
+    fragile: 50,
   },
 };
 
 /* -------------------------------------------------------------------------- */
-/*                            PAGE                                            */
+/* PAGE                                                                       */
 /* -------------------------------------------------------------------------- */
 
 export default function CalculatorPage() {
+  const router = useRouter();
+
+  /* ------------------------------------------------------------------------ */
+  /* FORM STATE                                                               */
+  /* ------------------------------------------------------------------------ */
+
   const [pickup, setPickup] = useState("");
   const [delivery, setDelivery] = useState("");
 
@@ -120,28 +155,34 @@ export default function CalculatorPage() {
     useState<DeliveryMode>("door-to-door");
 
   const [deliveryType, setDeliveryType] =
-    useState("regular");
+    useState<DeliveryType>("regular");
 
   const [weight, setWeight] = useState("1");
 
   const [parcelType, setParcelType] =
-    useState("parcel");
+    useState<ParcelType>("parcel");
 
   const [cod, setCod] =
     useState<CodOption>("no");
 
   const [serviceType, setServiceType] =
-    useState("standard");
+    useState<ServiceType>("standard");
+
+  const [error, setError] = useState("");
 
   /* ------------------------------------------------------------------------ */
-  /*                         CALCULATION                                      */
+  /* CALCULATION                                                              */
   /* ------------------------------------------------------------------------ */
 
   const calculation = useMemo(() => {
-    const numericWeight = Math.max(
-      0.1,
-      Number(weight) || 0
-    );
+    const numericWeight = Number(weight);
+
+    if (
+      !Number.isFinite(numericWeight) ||
+      numericWeight <= 0
+    ) {
+      return null;
+    }
 
     const locationRule =
       pricingConfig[valleyType];
@@ -166,62 +207,103 @@ export default function CalculatorPage() {
         deliveryMode
       ];
 
+    const deliveryTypeCharge =
+      pricingConfig.deliveryTypes[
+        deliveryType
+      ];
+
     const serviceCharge =
       pricingConfig.services[
         serviceType
-      ] ?? 0;
+      ];
 
     const specialCharge =
       pricingConfig.specialRules[
-        parcelType as keyof typeof pricingConfig.specialRules
-      ] ?? 0;
+        parcelType
+      ];
 
-    const codCharge =
+    const subtotal =
+      baseCharge +
+      extraWeightCharge +
+      deliveryModeCharge +
+      deliveryTypeCharge +
+      serviceCharge +
+      specialCharge;
+
+    const codPercentageCharge =
+      cod === "yes"
+        ? subtotal *
+          (pricingConfig.cod.percentage / 100)
+        : 0;
+
+    const codFixedCharge =
       cod === "yes"
         ? pricingConfig.cod.fixed
         : 0;
 
-    /*
-     * Delivery type currently does not add a charge
-     * because no official Aarambha pricing was provided
-     * for regular/scheduled/priority delivery.
-     *
-     * Keep this variable ready for future admin pricing.
-     */
-    const deliveryTypeCharge = 0;
+    const codCharge =
+      codFixedCharge +
+      codPercentageCharge;
 
     const total =
-      baseCharge +
-      extraWeightCharge +
-      deliveryModeCharge +
-      serviceCharge +
-      specialCharge +
-      codCharge +
-      deliveryTypeCharge;
+      subtotal +
+      codCharge;
 
     return {
       baseCharge,
+      extraWeight,
       extraWeightCharge,
       deliveryModeCharge,
+      deliveryTypeCharge,
       serviceCharge,
       specialCharge,
       codCharge,
-      deliveryTypeCharge,
       total,
-      extraWeight,
     };
   }, [
     valleyType,
     deliveryMode,
-    serviceType,
-    parcelType,
-    weight,
-    cod,
     deliveryType,
+    weight,
+    parcelType,
+    cod,
+    serviceType,
   ]);
 
   /* ------------------------------------------------------------------------ */
-  /*                            RESET                                         */
+  /* VALIDATION                                                               */
+  /* ------------------------------------------------------------------------ */
+
+  const validateForm = () => {
+    if (!pickup.trim()) {
+      setError("Please enter your pickup location.");
+      return false;
+    }
+
+    if (!delivery.trim()) {
+      setError("Please enter your delivery location.");
+      return false;
+    }
+
+    const numericWeight = Number(weight);
+
+    if (
+      !Number.isFinite(numericWeight) ||
+      numericWeight <= 0
+    ) {
+      setError(
+        "Please enter a valid package weight greater than 0 kg."
+      );
+      return false;
+    }
+
+    setError("");
+
+    return true;
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* RESET                                                                    */
   /* ------------------------------------------------------------------------ */
 
   const resetCalculator = () => {
@@ -234,10 +316,85 @@ export default function CalculatorPage() {
     setParcelType("parcel");
     setCod("no");
     setServiceType("standard");
+    setError("");
   };
 
   /* ------------------------------------------------------------------------ */
-  /*                            RENDER                                        */
+  /* CONTINUE TO BOOKING                                                      */
+  /* ------------------------------------------------------------------------ */
+
+  const continueToBooking = () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    if (!calculation) {
+      setError(
+        "Unable to calculate the delivery charge. Please check the package weight."
+      );
+
+      return;
+    }
+
+    const params = new URLSearchParams();
+
+    params.set(
+      "pickup",
+      pickup.trim()
+    );
+
+    params.set(
+      "delivery",
+      delivery.trim()
+    );
+
+    params.set(
+      "area",
+      valleyType
+    );
+
+    params.set(
+      "deliveryMode",
+      deliveryMode
+    );
+
+    params.set(
+      "deliveryType",
+      deliveryType
+    );
+
+    params.set(
+      "weight",
+      weight
+    );
+
+    params.set(
+      "parcelType",
+      parcelType
+    );
+
+    params.set(
+      "cod",
+      cod
+    );
+
+    params.set(
+      "service",
+      serviceType
+    );
+
+    params.set(
+      "estimatedCharge",
+      String(calculation.total)
+    );
+
+    router.push(
+      `/contact?${params.toString()}`
+    );
+  };
+
+  /* ------------------------------------------------------------------------ */
+  /* RENDER                                                                   */
   /* ------------------------------------------------------------------------ */
 
   return (
@@ -264,8 +421,11 @@ export default function CalculatorPage() {
           <div className="max-w-3xl">
 
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/40 bg-white px-4 py-2 text-sm font-semibold text-dark-1 shadow-sm">
+
               <Calculator className="h-4 w-4" />
+
               Delivery Charge Calculator
+
             </div>
 
             <h1 className="text-4xl font-bold tracking-tight text-fg sm:text-5xl lg:text-6xl">
@@ -274,8 +434,8 @@ export default function CalculatorPage() {
 
             <p className="mt-5 max-w-2xl text-base leading-7 text-muted sm:text-lg">
               Get an estimated courier charge based on
-              your pickup, delivery, weight, and service
-              requirements.
+              your pickup location, delivery location,
+              package weight, and selected service.
             </p>
 
           </div>
@@ -291,13 +451,11 @@ export default function CalculatorPage() {
 
         <div className="grid gap-8 lg:grid-cols-[1.5fr_0.8fr]">
 
-          {/* -------------------------------------------------------------- */}
-          {/* FORM                                                           */}
-          {/* -------------------------------------------------------------- */}
+          {/* ---------------------------------------------------------------- */}
+          {/* FORM                                                             */}
+          {/* ---------------------------------------------------------------- */}
 
           <div className="rounded-2xl border border-hairline bg-white shadow-sm">
-
-            {/* Card Header */}
 
             <div className="border-b border-hairline px-6 py-5 sm:px-8">
 
@@ -321,35 +479,33 @@ export default function CalculatorPage() {
 
             </div>
 
-            {/* Form */}
-
             <div className="space-y-7 px-6 py-7 sm:px-8">
 
-              {/* -------------------------------------------------------- */}
-              {/* LOCATION                                                 */}
-              {/* -------------------------------------------------------- */}
+              {/* ---------------------------------------------------------- */}
+              {/* LOCATIONS                                                   */}
+              {/* ---------------------------------------------------------- */}
 
               <div>
 
                 <h3 className="mb-4 text-sm font-bold uppercase tracking-wide text-muted">
-                  Shipment Location
+                  Shipment Locations
                 </h3>
 
                 <div className="grid gap-5 sm:grid-cols-2">
 
-                  {/* Pickup */}
-
-                  <FormField label="Pickup location">
+                  <FormField label="Pickup Location">
 
                     <div className="relative">
 
                       <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
 
                       <input
+                        type="text"
                         value={pickup}
-                        onChange={(e) =>
-                          setPickup(e.target.value)
-                        }
+                        onChange={(e) => {
+                          setPickup(e.target.value);
+                          setError("");
+                        }}
                         placeholder="e.g. Kupondole, Lalitpur"
                         className="w-full rounded-xl border border-hairline bg-white py-3 pl-10 pr-4 text-sm text-fg outline-none transition placeholder:text-faint focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
@@ -358,19 +514,19 @@ export default function CalculatorPage() {
 
                   </FormField>
 
-                  {/* Delivery */}
-
-                  <FormField label="Delivery location">
+                  <FormField label="Delivery Location">
 
                     <div className="relative">
 
                       <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
 
                       <input
+                        type="text"
                         value={delivery}
-                        onChange={(e) =>
-                          setDelivery(e.target.value)
-                        }
+                        onChange={(e) => {
+                          setDelivery(e.target.value);
+                          setError("");
+                        }}
                         placeholder="e.g. Baneshwor, Kathmandu"
                         className="w-full rounded-xl border border-hairline bg-white py-3 pl-10 pr-4 text-sm text-fg outline-none transition placeholder:text-faint focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
@@ -383,9 +539,9 @@ export default function CalculatorPage() {
 
               </div>
 
-              {/* -------------------------------------------------------- */}
-              {/* AREA                                                     */}
-              {/* -------------------------------------------------------- */}
+              {/* ---------------------------------------------------------- */}
+              {/* DELIVERY AREA                                               */}
+              {/* ---------------------------------------------------------- */}
 
               <div>
 
@@ -396,35 +552,41 @@ export default function CalculatorPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
 
                   <ChoiceButton
-                    active={valleyType === "inside"}
-                    onClick={() =>
-                      setValleyType("inside")
+                    active={
+                      valleyType === "inside"
                     }
-                    title="Inside Valley"
+                    onClick={() => {
+                      setValleyType("inside");
+                      setError("");
+                    }}
+                    title="Inside Kathmandu Valley"
                     description="Kathmandu Valley delivery"
                   />
 
                   <ChoiceButton
-                    active={valleyType === "outside"}
-                    onClick={() =>
-                      setValleyType("outside")
+                    active={
+                      valleyType === "outside"
                     }
-                    title="Outside Valley"
-                    description="Outside Kathmandu Valley"
+                    onClick={() => {
+                      setValleyType("outside");
+                      setError("");
+                    }}
+                    title="Outside Kathmandu Valley"
+                    description="Delivery outside Kathmandu Valley"
                   />
 
                 </div>
 
               </div>
 
-              {/* -------------------------------------------------------- */}
-              {/* DELIVERY MODE / TYPE                                    */}
-              {/* -------------------------------------------------------- */}
+              {/* ---------------------------------------------------------- */}
+              {/* DELIVERY OPTIONS                                            */}
+              {/* ---------------------------------------------------------- */}
 
               <div className="grid gap-5 sm:grid-cols-2">
 
                 <SelectField
-                  label="Delivery mode"
+                  label="Delivery Mode"
                   value={deliveryMode}
                   onChange={(value) =>
                     setDeliveryMode(
@@ -434,19 +596,23 @@ export default function CalculatorPage() {
                   options={[
                     {
                       value: "door-to-door",
-                      label: "Door-to-door",
+                      label: "Door-to-Door",
                     },
                     {
                       value: "door-to-branch",
-                      label: "Door-to-branch",
+                      label: "Door-to-Branch",
                     },
                   ]}
                 />
 
                 <SelectField
-                  label="Delivery type"
+                  label="Delivery Type"
                   value={deliveryType}
-                  onChange={setDeliveryType}
+                  onChange={(value) =>
+                    setDeliveryType(
+                      value as DeliveryType
+                    )
+                  }
                   options={[
                     {
                       value: "regular",
@@ -465,13 +631,13 @@ export default function CalculatorPage() {
 
               </div>
 
-              {/* -------------------------------------------------------- */}
-              {/* WEIGHT / PARCEL                                          */}
-              {/* -------------------------------------------------------- */}
+              {/* ---------------------------------------------------------- */}
+              {/* PACKAGE                                                     */}
+              {/* ---------------------------------------------------------- */}
 
               <div className="grid gap-5 sm:grid-cols-2">
 
-                <FormField label="Weight (kg)">
+                <FormField label="Package Weight (kg)">
 
                   <div className="relative">
 
@@ -482,9 +648,12 @@ export default function CalculatorPage() {
                       min="0.1"
                       step="0.1"
                       value={weight}
-                      onChange={(e) =>
-                        setWeight(e.target.value)
-                      }
+                      onChange={(e) => {
+                        setWeight(
+                          e.target.value
+                        );
+                        setError("");
+                      }}
                       className="w-full rounded-xl border border-hairline bg-white py-3 pl-10 pr-4 text-sm text-fg outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
 
@@ -493,9 +662,13 @@ export default function CalculatorPage() {
                 </FormField>
 
                 <SelectField
-                  label="Parcel type"
+                  label="Package Type"
                   value={parcelType}
-                  onChange={setParcelType}
+                  onChange={(value) =>
+                    setParcelType(
+                      value as ParcelType
+                    )
+                  }
                   options={[
                     {
                       value: "parcel",
@@ -507,24 +680,26 @@ export default function CalculatorPage() {
                     },
                     {
                       value: "fragile",
-                      label: "Fragile Item",
+                      label: "Fragile Package",
                     },
                   ]}
                 />
 
               </div>
 
-              {/* -------------------------------------------------------- */}
-              {/* COD / SERVICE                                            */}
-              {/* -------------------------------------------------------- */}
+              {/* ---------------------------------------------------------- */}
+              {/* COD / SERVICE                                               */}
+              {/* ---------------------------------------------------------- */}
 
               <div className="grid gap-5 sm:grid-cols-2">
 
                 <SelectField
-                  label="COD"
+                  label="Cash on Delivery (COD)"
                   value={cod}
                   onChange={(value) =>
-                    setCod(value as CodOption)
+                    setCod(
+                      value as CodOption
+                    )
                   }
                   options={[
                     {
@@ -539,9 +714,13 @@ export default function CalculatorPage() {
                 />
 
                 <SelectField
-                  label="Service type"
+                  label="Service Type"
                   value={serviceType}
-                  onChange={setServiceType}
+                  onChange={(value) =>
+                    setServiceType(
+                      value as ServiceType
+                    )
+                  }
                   options={[
                     {
                       value: "standard",
@@ -553,16 +732,30 @@ export default function CalculatorPage() {
                     },
                     {
                       value: "same-day",
-                      label: "Same Day",
+                      label: "Same-Day Delivery",
                     },
                   ]}
                 />
 
               </div>
 
-              {/* -------------------------------------------------------- */}
-              {/* RESET                                                    */}
-              {/* -------------------------------------------------------- */}
+              {/* ---------------------------------------------------------- */}
+              {/* VALIDATION ERROR                                            */}
+              {/* ---------------------------------------------------------- */}
+
+              {error && (
+                <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                  <p>{error}</p>
+
+                </div>
+              )}
+
+              {/* ---------------------------------------------------------- */}
+              {/* RESET                                                       */}
+              {/* ---------------------------------------------------------- */}
 
               <button
                 type="button"
@@ -570,15 +763,18 @@ export default function CalculatorPage() {
                 className="inline-flex items-center gap-2 text-sm font-semibold text-muted transition hover:text-dark-1"
               >
                 <RotateCcw className="h-4 w-4" />
-                Reset calculator
+
+                Reset Calculator
+
               </button>
 
             </div>
+
           </div>
 
-          {/* -------------------------------------------------------------- */}
-          {/* RESULT                                                         */}
-          {/* -------------------------------------------------------------- */}
+          {/* ---------------------------------------------------------------- */}
+          {/* RESULT                                                           */}
+          {/* ---------------------------------------------------------------- */}
 
           <aside className="h-fit lg:sticky lg:top-28">
 
@@ -598,13 +794,14 @@ export default function CalculatorPage() {
 
                 </div>
 
-                <div className="mt-4 flex items-end gap-2">
+                <div className="mt-4">
 
                   <span className="text-4xl font-bold">
-                    Rs.{" "}
-                    {calculation.total.toLocaleString(
-                      "en-NP"
-                    )}
+                    {calculation
+                      ? `Rs. ${calculation.total.toLocaleString(
+                          "en-NP"
+                        )}`
+                      : "—"}
                   </span>
 
                 </div>
@@ -624,78 +821,93 @@ export default function CalculatorPage() {
                   Charge Breakdown
                 </h3>
 
-                <div className="space-y-4 text-sm">
+                {calculation ? (
+                  <div className="space-y-4 text-sm">
 
-                  <ChargeRow
-                    label="Base charge"
-                    amount={calculation.baseCharge}
-                  />
-
-                  <ChargeRow
-                    label={`Extra weight${
-                      calculation.extraWeight > 0
-                        ? ` (${calculation.extraWeight} kg)`
-                        : ""
-                    }`}
-                    amount={
-                      calculation.extraWeightCharge
-                    }
-                  />
-
-                  <ChargeRow
-                    label="Delivery mode"
-                    amount={
-                      calculation.deliveryModeCharge
-                    }
-                  />
-
-                  <ChargeRow
-                    label="Service charge"
-                    amount={
-                      calculation.serviceCharge
-                    }
-                  />
-
-                  {calculation.specialCharge > 0 && (
                     <ChargeRow
-                      label="Special handling"
+                      label="Base Charge"
+                      amount={
+                        calculation.baseCharge
+                      }
+                    />
+
+                    <ChargeRow
+                      label={
+                        calculation.extraWeight > 0
+                          ? `Additional Weight (${calculation.extraWeight} kg)`
+                          : "Additional Weight"
+                      }
+                      amount={
+                        calculation.extraWeightCharge
+                      }
+                    />
+
+                    <ChargeRow
+                      label="Delivery Mode Charge"
+                      amount={
+                        calculation.deliveryModeCharge
+                      }
+                    />
+
+                    <ChargeRow
+                      label="Delivery Type Charge"
+                      amount={
+                        calculation.deliveryTypeCharge
+                      }
+                    />
+
+                    <ChargeRow
+                      label="Service Charge"
+                      amount={
+                        calculation.serviceCharge
+                      }
+                    />
+
+                    <ChargeRow
+                      label="Special Handling"
                       amount={
                         calculation.specialCharge
                       }
                     />
-                  )}
 
-                  <ChargeRow
-                    label="COD charge"
-                    amount={calculation.codCharge}
-                  />
+                    <ChargeRow
+                      label="COD Charge"
+                      amount={
+                        calculation.codCharge
+                      }
+                    />
 
-                  {/* Total */}
+                    <div className="border-t border-hairline pt-4">
 
-                  <div className="border-t border-hairline pt-4">
+                      <div className="flex items-center justify-between gap-4">
 
-                    <div className="flex items-center justify-between">
+                        <span className="font-bold text-fg">
+                          Estimated Total
+                        </span>
 
-                      <span className="font-bold text-fg">
-                        Estimated total
-                      </span>
+                        <span className="text-xl font-bold text-dark-1">
+                          Rs.{" "}
+                          {calculation.total.toLocaleString(
+                            "en-NP"
+                          )}
+                        </span>
 
-                      <span className="text-xl font-bold text-dark-1">
-                        Rs.{" "}
-                        {calculation.total.toLocaleString(
-                          "en-NP"
-                        )}
-                      </span>
+                      </div>
 
                     </div>
 
                   </div>
+                ) : (
+                  <p className="text-sm text-muted">
+                    Enter a valid package weight to
+                    calculate your estimated delivery
+                    charge.
+                  </p>
+                )}
 
-                </div>
-
-                {/* ------------------------------------------------------ */}
-                {/* NOTICE                                                  */}
-                {/* ------------------------------------------------------ */}
+                {/* -------------------------------------------------------- */}
+                {/* NOTICE                                                    */}
+                {/* -------------------------------------------------------- */}
 
                 <div className="mt-6 rounded-xl border border-primary/30 bg-cream p-4">
 
@@ -705,7 +917,7 @@ export default function CalculatorPage() {
 
                     <p className="text-xs leading-5 text-dark-1/75">
                       This is an estimated delivery
-                      charge. Final charge may vary
+                      charge. The final charge may vary
                       after verification by Aarambha
                       Courier.
                     </p>
@@ -714,17 +926,19 @@ export default function CalculatorPage() {
 
                 </div>
 
-                {/* ------------------------------------------------------ */}
-                {/* CTA                                                     */}
-                {/* ------------------------------------------------------ */}
+                {/* -------------------------------------------------------- */}
+                {/* BOOKING BUTTON                                            */}
+                {/* -------------------------------------------------------- */}
 
                 <button
                   type="button"
+                  onClick={continueToBooking}
                   className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 py-3.5 text-sm font-bold text-dark-1 transition hover:opacity-90"
                 >
-                  Continue with Booking
+                  Continue to Booking
 
                   <ArrowRight className="h-4 w-4" />
+
                 </button>
 
               </div>
@@ -742,7 +956,7 @@ export default function CalculatorPage() {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              FORM FIELD                                    */
+/* FORM FIELD                                                                 */
 /* -------------------------------------------------------------------------- */
 
 function FormField({
@@ -754,19 +968,17 @@ function FormField({
 }) {
   return (
     <div>
-
       <label className="mb-2 block text-sm font-semibold text-fg">
         {label}
       </label>
 
       {children}
-
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              SELECT FIELD                                  */
+/* SELECT FIELD                                                               */
 /* -------------------------------------------------------------------------- */
 
 function SelectField({
@@ -814,7 +1026,7 @@ function SelectField({
 }
 
 /* -------------------------------------------------------------------------- */
-/*                            CHOICE BUTTON                                   */
+/* CHOICE BUTTON                                                              */
 /* -------------------------------------------------------------------------- */
 
 function ChoiceButton({
@@ -832,20 +1044,21 @@ function ChoiceButton({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={active}
       className={`rounded-xl border p-4 text-left transition ${
         active
           ? "border-primary bg-cream ring-1 ring-primary"
           : "border-hairline bg-white hover:border-primary/50"
       }`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
 
         <span className="font-semibold text-fg">
           {title}
         </span>
 
         <span
-          className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+          className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
             active
               ? "border-primary bg-primary"
               : "border-faint bg-white"
@@ -867,7 +1080,7 @@ function ChoiceButton({
 }
 
 /* -------------------------------------------------------------------------- */
-/*                              CHARGE ROW                                    */
+/* CHARGE ROW                                                                 */
 /* -------------------------------------------------------------------------- */
 
 function ChargeRow({

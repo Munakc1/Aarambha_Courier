@@ -11,7 +11,10 @@ import {
   Mail,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:5000"
+).replace(/\/+$/, "");
 
 export default function VendorForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -19,28 +22,24 @@ export default function VendorForgotPasswordPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(
+    e: FormEvent<HTMLFormElement>
+  ) {
     e.preventDefault();
 
     setError("");
     setSuccess(false);
-    setLoading(true);
 
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email
+      .trim()
+      .toLowerCase();
 
     if (!normalizedEmail) {
       setError("Please enter your email address.");
-      setLoading(false);
       return;
     }
 
-    if (!API_URL) {
-      setError(
-        "API configuration is missing. Please check NEXT_PUBLIC_API_URL."
-      );
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
 
     try {
       const response = await fetch(
@@ -57,7 +56,9 @@ export default function VendorForgotPasswordPage() {
         }
       );
 
-      const data = await response.json().catch(() => null);
+      const data = await response
+        .json()
+        .catch(() => null);
 
       if (!response.ok) {
         throw new Error(
@@ -66,8 +67,20 @@ export default function VendorForgotPasswordPage() {
         );
       }
 
+      /*
+       * The backend now sends the reset link
+       * directly to the vendor's email.
+       *
+       * We intentionally do NOT receive or display
+       * the reset token in the frontend.
+       */
       setSuccess(true);
     } catch (err) {
+      console.error(
+        "Forgot password error:",
+        err
+      );
+
       setError(
         err instanceof Error
           ? err.message
@@ -114,7 +127,11 @@ export default function VendorForgotPasswordPage() {
             {/* Icon */}
             <div className="mt-7 flex justify-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-badge text-primary">
-                <LockKeyhole size={26} />
+                {success ? (
+                  <CheckCircle2 size={26} />
+                ) : (
+                  <LockKeyhole size={26} />
+                )}
               </div>
             </div>
 
@@ -129,8 +146,9 @@ export default function VendorForgotPasswordPage() {
               </h1>
 
               <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-muted">
-                Enter the email address associated with your vendor account
-                and we&apos;ll send you a password reset link.
+                Enter the email address associated with
+                your vendor account and we&apos;ll send
+                you a password reset link.
               </p>
             </div>
 
@@ -161,7 +179,9 @@ export default function VendorForgotPasswordPage() {
                       type="email"
                       autoComplete="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) =>
+                        setEmail(e.target.value)
+                      }
                       placeholder="Enter your email"
                       required
                       disabled={loading}
@@ -188,7 +208,7 @@ export default function VendorForgotPasswordPage() {
                   className="h-12 w-full rounded-xl bg-primary px-5 text-sm font-bold text-dark-1 transition hover:-translate-y-0.5 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {loading
-                    ? "Sending reset link..."
+                    ? "Sending Reset Link..."
                     : "Send Reset Link"}
                 </button>
               </form>
@@ -196,32 +216,44 @@ export default function VendorForgotPasswordPage() {
               /* Success State */
               <div
                 role="status"
-                className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-5 text-center"
+                aria-live="polite"
+                className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-5"
               >
                 <div className="flex justify-center">
                   <CheckCircle2
-                    size={30}
+                    size={32}
                     className="text-green-600"
                   />
                 </div>
 
-                <h2 className="mt-3 text-base font-bold text-green-800">
-                  Check your email
+                <h2 className="mt-3 text-center text-base font-bold text-green-800">
+                  Check Your Email
                 </h2>
 
-                <p className="mt-2 text-sm leading-6 text-green-700">
+                <p className="mt-2 text-center text-sm leading-6 text-green-700">
                   If an account exists for{" "}
-                  <strong>{email.trim().toLowerCase()}</strong>, you
-                  will receive a password reset link shortly.
+                  <span className="font-bold">
+                    {email.trim().toLowerCase()}
+                  </span>
+                  , we&apos;ve sent a password reset link.
                 </p>
 
-                <p className="mt-3 text-xs leading-5 text-green-700">
-                  Please also check your spam or junk folder.
+                <p className="mt-3 text-center text-xs leading-5 text-green-700">
+                  The reset link is valid for 15 minutes.
+                  Please check your spam or junk folder if
+                  you don&apos;t see the email.
                 </p>
+
+                <Link
+                  href="/vendor/login"
+                  className="mt-5 flex h-12 w-full items-center justify-center rounded-xl bg-primary px-5 text-sm font-bold text-dark-1 transition hover:-translate-y-0.5 hover:opacity-90"
+                >
+                  Back to Sign In
+                </Link>
               </div>
             )}
 
-            {/* Back to Login */}
+            {/* Footer */}
             <div className="mt-7 border-t border-hairline pt-6 text-center">
               <p className="text-sm text-muted">
                 Remember your password?

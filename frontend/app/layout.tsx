@@ -1,35 +1,45 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import { Inter } from "next/font/google";
+
 import { ThemeProvider } from "@lacspace/theme";
 import { site } from "@/lib/site";
-import { CommandMenu } from "@/components/command-menu";
-import { AnnouncementBar } from "@/components/announcement-bar";
-import SiteHeader from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-require("./globals.css");
+import PublicSiteLayout from "@/components/public-site-layout";
 
-const inter = Inter({ subsets: ["latin"], display: "swap", variable: "--font-inter" });
+// @ts-expect-error Next.js handles this stylesheet import.
+import "./globals.css";
 
-export const metadata: Metadata = site.meta({ title: "LSFolio" });
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const metadata: Metadata = site.meta({
+  title: "Aarambha Courier",
+});
+
+export default function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
-    <html lang="en" className={`${inter.variable} ${inter.className}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${inter.variable} ${inter.className}`}
+      suppressHydrationWarning
+    >
       <body className="antialiased">
-        {/* Keyboard users land here first and can jump past the nav (WCAG 2.4.1). */}
-        <a href="#main" className="skip-link">Skip to content</a>
-        {/* ✨ Dark / light / system theming with a built-in no-flash script — @lacspace/theme */}
         <ThemeProvider defaultTheme="dark">
-          {/* ✨ Press ⌘K / Ctrl-K anywhere — powered by @lacspace/ui */}
-          <CommandMenu />
-          <AnnouncementBar />
-          <SiteHeader />
-          <div id="main" tabIndex={-1}>{children}</div>
-          <SiteFooter />
+          <PublicSiteLayout>{children}</PublicSiteLayout>
         </ThemeProvider>
+
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(site.rootJsonLd()) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(site.rootJsonLd()),
+          }}
         />
       </body>
     </html>
