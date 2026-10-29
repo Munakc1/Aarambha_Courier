@@ -6,6 +6,14 @@ import cookieParser from "cookie-parser";
 
 import { connectDB } from "./config/db.js";
 import vendorRoutes from "./routes/vendorRoutes.js";
+// import vendorProfileRoutes from "./routes/vendor.routes.js";
+import trackingRoutes from "./routes/tracking.routes.js";
+import esewaRoutes from "./routes/esewa.routes.js";
+import calculatorRoutes from "./routes/calculator.routes";
+import aboutRoutes from "./routes/about.routes";
+import contactRoutes from "./routes/contact.routes";
+import vendorProfileRoutes from "./routes/vendorProfile.routes.js";
+// import blogRoutes from "./routes/blog.routes";
 import {
   notFoundHandler,
   errorHandler
@@ -73,6 +81,17 @@ app.get("/api/health", (_req, res) => {
 
 
 app.use("/api/vendor", vendorRoutes);
+app.use("/api/tracking", trackingRoutes);
+app.use("/api/payments/esewa", esewaRoutes);
+app.use("/api/calculator", calculatorRoutes);
+app.use("/api/about", aboutRoutes);
+app.use("/api/contact", contactRoutes);
+app.use("/api/vendor/profile", vendorProfileRoutes);
+
+app.use(express.json({ limit: "1mb" }));
+
+// app.use("/api/blog", blogRoutes);
+
 
 /*
 |--------------------------------------------------------------------------

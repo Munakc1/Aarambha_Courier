@@ -1,45 +1,28 @@
+
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type FormEvent,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
-  Activity,
-  ArrowDownRight,
-  ArrowRight,
+  AlertTriangle,
   ArrowUpRight,
-  CalendarDays,
+  Calculator,
   Check,
   CheckCircle2,
   Clock3,
   Copy,
   Download,
-  ExternalLink,
-  LoaderCircle,
+  LifeBuoy,
+  MapPin,
   Package,
   Plus,
-  RefreshCw,
   Search,
   Truck,
   Wallet,
-  XCircle,
 } from "lucide-react";
 
-type ShipmentStatus =
-  | "PENDING"
-  | "PENDING_PICKUP"
-  | "PICKED_UP"
-  | "IN_TRANSIT"
-  | "OUT_FOR_DELIVERY"
-  | "DELIVERED"
-  | "CANCELLED"
-  | "RETURNED"
-  | "FAILED";
+/* ----------------------------- Types ----------------------------- */
 
 type Shipment = {
   _id?: string;
@@ -47,7 +30,7 @@ type Shipment = {
   trackingNumber?: string;
   trackingId?: string;
   shipmentId?: string;
-  status?: ShipmentStatus | string;
+  status?: string;
   recipientName?: string;
   receiverName?: string;
   customerName?: string;
@@ -60,265 +43,219 @@ type Shipment = {
   codAmount?: number;
   totalAmount?: number;
   amount?: number;
-  paymentStatus?: string;
   createdAt?: string;
-  updatedAt?: string;
 };
 
-type ApiResponse = {
-  shipments?: Shipment[];
-  data?: Shipment[] | { shipments?: Shipment[] };
-  results?: Shipment[];
-  message?: string;
+/* ----------------------------- Config ----------------------------- */
+
+const PAGE_SIZE = 8;
+
+const GROUPS = {
+  PENDING: {
+    label: "Awaiting pickup",
+    statuses: ["PENDING", "PENDING_PICKUP"],
+    color: "#9C927D",
+  },
+  IN_TRANSIT: {
+    label: "In transit",
+    statuses: ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"],
+    color: "#FBB501",
+  },
+  DELIVERED: {
+    label: "Delivered",
+    statuses: ["DELIVERED"],
+    color: "#3F9A5B",
+  },
+  ISSUES: {
+    label: "Cancelled / returned",
+    statuses: ["CANCELLED", "RETURNED", "FAILED"],
+    color: "#D1523A",
+  },
+} as const;
+
+type GroupKey = keyof typeof GROUPS;
+const GROUP_KEYS = Object.keys(GROUPS) as GroupKey[];
+
+const FOCUS =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0A0E12]";
+
+/* ----------------------------- Helpers ----------------------------- */
+
+const getTrackingNumber = (s: Shipment) =>
+  s.trackingNumber || s.trackingId || s.shipmentId || s._id || s.id || "—";
+
+const getRecipient = (s: Shipment) =>
+  s.recipientName || s.receiverName || s.customerName || "Customer";
+
+const getPhone = (s: Shipment) => s.recipientPhone || s.receiverPhone || "";
+
+const getDestination = (s: Shipment) =>
+  s.destination ||
+  s.deliveryAddress ||
+  s.receiverAddress ||
+  s.city ||
+  "Address not provided";
+
+const getAmount = (s: Shipment) => {
+  const n = Number(s.codAmount ?? s.totalAmount ?? s.amount ?? 0);
+  return Number.isFinite(n) ? n : 0;
 };
 
-const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
-).replace(/\/$/, "");
+const normalizeStatus = (status?: string) =>
+  (status || "PENDING").toUpperCase().replace(/[\s-]+/g, "_");
 
-const COLORS = {
-  page: "#FEF8EB",
-  yellow: "#FBB501",
-  orange: "#FAA212",
-  black: "#0A0E12",
-  border: "#E5E0D5",
-  muted: "#77756E",
-};
-
-const STATUS_OPTIONS = [
-  "ALL",
-  "PENDING",
-  "PENDING_PICKUP",
-  "PICKED_UP",
-  "IN_TRANSIT",
-  "OUT_FOR_DELIVERY",
-  "DELIVERED",
-  "CANCELLED",
-  "RETURNED",
-  "FAILED",
-] as const;
-
-function getTrackingNumber(shipment: Shipment) {
-  return (
-    shipment.trackingNumber ||
-    shipment.trackingId ||
-    shipment.shipmentId ||
-    shipment._id ||
-    shipment.id ||
-    "—"
-  );
-}
-
-function getRecipient(shipment: Shipment) {
-  return (
-    shipment.recipientName ||
-    shipment.receiverName ||
-    shipment.customerName ||
-    "Customer"
-  );
-}
-
-function getDestination(shipment: Shipment) {
-  return (
-    shipment.destination ||
-    shipment.deliveryAddress ||
-    shipment.receiverAddress ||
-    shipment.city ||
-    "Address not provided"
-  );
-}
-
-function getAmount(shipment: Shipment) {
-  const amount =
-    shipment.codAmount ?? shipment.totalAmount ?? shipment.amount ?? 0;
-
-  return Number.isFinite(Number(amount)) ? Number(amount) : 0;
-}
-
-function normalizeStatus(status?: string) {
-  return (status || "PENDING").toUpperCase().replace(/[\s-]+/g, "_");
-}
-
-function formatStatus(status?: string) {
-  return normalizeStatus(status)
+const formatStatus = (status?: string) =>
+  normalizeStatus(status)
     .split("_")
-    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .map((p) => p.charAt(0) + p.slice(1).toLowerCase())
     .join(" ");
-}
+
+const groupOf = (status?: string): GroupKey => {
+  const n = normalizeStatus(status);
+  const found = GROUP_KEYS.find((k) =>
+    (GROUPS[k].statuses as readonly string[]).includes(n),
+  );
+  return found ?? "PENDING";
+};
 
 function formatDate(value?: string) {
   if (!value) return "—";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
 
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(date);
+  }).format(d);
 }
 
-function formatNPR(value: number) {
-  return new Intl.NumberFormat("en-IN", {
+const formatNPR = (v: number) =>
+  new Intl.NumberFormat("en-IN", {
     maximumFractionDigits: 2,
-  }).format(value);
-}
+  }).format(v);
 
-function getStatusStyle(status?: string) {
-  const normalized = normalizeStatus(status);
-
-  if (normalized === "DELIVERED") {
-    return "border-[#B8D9C0] bg-[#EDF7EE] text-[#276738]";
-  }
-
-  if (["IN_TRANSIT", "OUT_FOR_DELIVERY", "PICKED_UP"].includes(normalized)) {
-    return "border-[#E9D49A] bg-[#FFF7DE] text-[#765600]";
-  }
-
-  if (["CANCELLED", "FAILED", "RETURNED"].includes(normalized)) {
-    return "border-[#E6C1B8] bg-[#FFF0EC] text-[#9A3926]";
-  }
-
-  return "border-[#E5E0D5] bg-[#F7F5EF] text-[#656159]";
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "Unable to load shipments. Please try again.";
-}
+/* ----------------------------- Page ----------------------------- */
 
 export default function VendorDashboardPage() {
-  const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
+  // Frontend-only dashboard. No backend API calls.
+  const [shipments] = useState<Shipment[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [tab, setTab] = useState<"ALL" | GroupKey>("ALL");
   const [dateFilter, setDateFilter] = useState("ALL");
-  const [copiedTracking, setCopiedTracking] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [copied, setCopied] = useState("");
+  const [page, setPage] = useState(1);
+  const [today, setToday] = useState("");
 
-  const pageSize = 8;
-
-  const loadShipments = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    setError("");
-
-    try {
-      /*
-       * IMPORTANT:
-       * Change this URL to your existing vendor shipment-list endpoint
-       * if your backend uses a different route.
-       *
-       * credentials: "include" preserves cookie-based authentication.
-       */
-      const response = await fetch(`${API_URL}/api/vendor/shipments`, {
-        method: "GET",
-        credentials: "include",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store",
-      });
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error(
-          "Your session may have expired. Please sign in again.",
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Unable to retrieve shipments (HTTP ${response.status}).`,
-        );
-      }
-
-      const result: ApiResponse | Shipment[] = await response.json();
-
-      let list: Shipment[] = [];
-
-      if (Array.isArray(result)) {
-        list = result;
-      } else if (Array.isArray(result.shipments)) {
-        list = result.shipments;
-      } else if (Array.isArray(result.results)) {
-        list = result.results;
-      } else if (Array.isArray(result.data)) {
-        list = result.data;
-      } else if (
-        result.data &&
-        !Array.isArray(result.data) &&
-        Array.isArray(result.data.shipments)
-      ) {
-        list = result.data.shipments;
-      }
-
-      setShipments(list);
-      setCurrentPage(1);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Set on the client only to prevent server/browser date mismatches.
+  useEffect(() => {
+    setToday(
+      new Intl.DateTimeFormat("en-GB", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      }).format(new Date()),
+    );
   }, []);
 
-  useEffect(() => {
-    void loadShipments();
-  }, [loadShipments]);
-
   const stats = useMemo(() => {
-    const count = (statuses: string[]) =>
-      shipments.filter((shipment) =>
-        statuses.includes(normalizeStatus(shipment.status)),
-      ).length;
+    const counts: Record<GroupKey, number> = {
+      PENDING: 0,
+      IN_TRANSIT: 0,
+      DELIVERED: 0,
+      ISSUES: 0,
+    };
+
+    let cod = 0;
+
+    for (const s of shipments) {
+      const g = groupOf(s.status);
+      counts[g] += 1;
+
+      if (g !== "ISSUES") {
+        cod += getAmount(s);
+      }
+    }
 
     return {
       total: shipments.length,
-      pending: count(["PENDING", "PENDING_PICKUP"]),
-      inTransit: count(["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"]),
-      delivered: count(["DELIVERED"]),
-      cancelled: count(["CANCELLED", "FAILED", "RETURNED"]),
-      cod: shipments
-        .filter(
-          (shipment) =>
-            normalizeStatus(shipment.status) !== "CANCELLED" &&
-            normalizeStatus(shipment.status) !== "RETURNED",
-        )
-        .reduce((sum, shipment) => sum + getAmount(shipment), 0),
+      counts,
+      cod,
     };
   }, [shipments]);
 
-  const filteredShipments = useMemo(() => {
-    const query = search.trim().toLowerCase();
+  /** Parcels created per day for the last 7 days. */
+  const week = useMemo(() => {
+    const days: { key: string; label: string; count: number }[] = [];
+    const base = new Date();
+    base.setHours(0, 0, 0, 0);
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(base);
+      d.setDate(base.getDate() - i);
+
+      days.push({
+        key: d.toDateString(),
+        label: new Intl.DateTimeFormat("en-GB", {
+          weekday: "short",
+        }).format(d),
+        count: 0,
+      });
+    }
+
+    for (const s of shipments) {
+      if (!s.createdAt) continue;
+
+      const c = new Date(s.createdAt);
+      if (Number.isNaN(c.getTime())) continue;
+
+      const slot = days.find((d) => d.key === c.toDateString());
+      if (slot) slot.count += 1;
+    }
+
+    const total = days.reduce((n, d) => n + d.count, 0);
+    const max = Math.max(1, ...days.map((d) => d.count));
+
+    return { days, total, max };
+  }, [shipments]);
+
+  /** Latest cancelled / returned / failed parcels. */
+  const attention = useMemo(
+    () =>
+      shipments
+        .filter((s) => groupOf(s.status) === "ISSUES")
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+        .slice(0, 4),
+    [shipments],
+  );
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const now = new Date();
+    const day = 24 * 60 * 60 * 1000;
 
-    return shipments.filter((shipment) => {
-      const status = normalizeStatus(shipment.status);
-
-      if (statusFilter !== "ALL" && status !== statusFilter) {
+    return shipments.filter((s) => {
+      if (tab !== "ALL" && groupOf(s.status) !== tab) {
         return false;
       }
 
       if (dateFilter !== "ALL") {
-        if (!shipment.createdAt) return false;
+        if (!s.createdAt) return false;
 
-        const created = new Date(shipment.createdAt);
-
+        const created = new Date(s.createdAt);
         if (Number.isNaN(created.getTime())) return false;
 
         const age = now.getTime() - created.getTime();
-        const day = 24 * 60 * 60 * 1000;
 
-        if (dateFilter === "TODAY" && created.toDateString() !== now.toDateString()) {
+        if (
+          dateFilter === "TODAY" &&
+          created.toDateString() !== now.toDateString()
+        ) {
           return false;
         }
 
@@ -331,43 +268,38 @@ export default function VendorDashboardPage() {
         }
       }
 
-      if (!query) return true;
+      if (!q) return true;
 
-      const searchable = [
-        getTrackingNumber(shipment),
-        getRecipient(shipment),
-        getDestination(shipment),
-        shipment.recipientPhone,
-        shipment.receiverPhone,
-        shipment.status,
+      return [
+        getTrackingNumber(s),
+        getRecipient(s),
+        getDestination(s),
+        getPhone(s),
+        s.status,
       ]
         .filter(Boolean)
         .join(" ")
-        .toLowerCase();
-
-      return searchable.includes(query);
+        .toLowerCase()
+        .includes(q);
     });
-  }, [shipments, search, statusFilter, dateFilter]);
+  }, [shipments, search, tab, dateFilter]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredShipments.length / pageSize),
-  );
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
 
-  const safePage = Math.min(currentPage, totalPages);
-
-  const visibleShipments = filteredShipments.slice(
-    (safePage - 1) * pageSize,
-    safePage * pageSize,
+  const visible = filtered.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
   );
 
   async function copyTracking(tracking: string) {
     try {
       await navigator.clipboard.writeText(tracking);
-      setCopiedTracking(tracking);
-      window.setTimeout(() => setCopiedTracking(""), 1800);
+      setCopied(tracking);
+      window.setTimeout(() => setCopied(""), 1800);
     } catch {
-      setError("Could not copy the tracking number. Please copy it manually.");
+      // Clipboard access may be unavailable in some browser contexts.
+      // The dashboard itself remains fully usable.
     }
   }
 
@@ -381,20 +313,20 @@ export default function VendorDashboardPage() {
       "Created At",
     ];
 
-    const escapeCsv = (value: unknown) =>
-      `"${String(value ?? "").replace(/"/g, '""')}"`;
+    const esc = (v: unknown) =>
+      `"${String(v ?? "").replace(/"/g, '""')}"`;
 
-    const rows = filteredShipments.map((shipment) => [
-      getTrackingNumber(shipment),
-      getRecipient(shipment),
-      getDestination(shipment),
-      formatStatus(shipment.status),
-      getAmount(shipment),
-      formatDate(shipment.createdAt),
+    const rows = filtered.map((s) => [
+      getTrackingNumber(s),
+      getRecipient(s),
+      getDestination(s),
+      formatStatus(s.status),
+      getAmount(s),
+      formatDate(s.createdAt),
     ]);
 
     const csv = [columns, ...rows]
-      .map((row) => row.map(escapeCsv).join(","))
+      .map((r) => r.map(esc).join(","))
       .join("\r\n");
 
     const blob = new Blob(["\uFEFF", csv], {
@@ -402,74 +334,56 @@ export default function VendorDashboardPage() {
     });
 
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
+    const a = document.createElement("a");
 
-    anchor.href = url;
-    anchor.download = "aarambha-vendor-shipments.csv";
-    anchor.click();
+    a.href = url;
+    a.download = "aarambha-vendor-shipments.csv";
+    a.click();
 
     URL.revokeObjectURL(url);
   }
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setCurrentPage(1);
-  }
+  const tabs: { key: "ALL" | GroupKey; label: string; count: number }[] = [
+    { key: "ALL", label: "All", count: stats.total },
+    ...GROUP_KEYS.map((k) => ({
+      key: k,
+      label: GROUPS[k].label,
+      count: stats.counts[k],
+    })),
+  ];
 
   return (
-    <main
-      className="min-h-screen min-w-0"
-      style={{
-        backgroundColor: COLORS.page,
-        color: COLORS.black,
-      }}
-    >
-      <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-        {/* Page heading */}
-        <header className="flex flex-col justify-between gap-5 border-b border-[#E5E0D5] pb-6 md:flex-row md:items-end">
+    <main className="min-h-screen bg-[#FEF8EB] text-[#0A0E12]">
+      <div className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+        {/* ---------- Header ---------- */}
+        <header className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#77756E]">
-              <Package size={14} />
-              Vendor portal
-              <span className="text-[#B8B0A0]">/</span>
-              Operations
-            </div>
+            <p className="min-h-5 text-sm font-medium text-[#77756E]">
+              {today || "Aarambha Courier"}
+            </p>
 
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
-              Dashboard
+            <h1 className="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
+              Namaste, welcome back
             </h1>
 
-            <p className="mt-2 text-sm text-[#77756E]">
-              Your shipment activity, delivery progress, and cash-on-delivery
-              overview.
+            <p className="mt-1.5 max-w-xl text-sm text-[#77756E]">
+              Here is where your parcels are and how much cash you are owed on
+              delivery.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void loadShipments(true)}
-              disabled={loading || refreshing}
-              className="inline-flex h-10 items-center justify-center gap-2 border border-[#D8D1C3] bg-white px-3 text-sm font-medium transition-colors hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw
-                size={15}
-                className={refreshing ? "animate-spin" : ""}
-              />
-              Refresh
-            </button>
-
             <Link
               href="/calculator"
-              className="inline-flex h-10 items-center justify-center gap-2 border border-[#D8D1C3] bg-white px-3 text-sm font-medium transition-colors hover:bg-[#FAF7EF]"
+              className={`inline-flex h-11 items-center gap-2 rounded-xl border border-[#E5E0D5] bg-white px-4 text-sm font-medium transition hover:border-[#D8D1C3] hover:bg-[#FFFCF5] ${FOCUS}`}
             >
-              <Wallet size={15} />
+              <Calculator size={15} />
               Rate calculator
             </Link>
 
             <Link
               href="/vendor/dashboard/shipments/create"
-              className="inline-flex h-10 items-center justify-center gap-2 bg-[#FBB501] px-4 text-sm font-semibold text-[#0A0E12] transition-colors hover:bg-[#FAA212]"
+              className={`inline-flex h-11 items-center gap-2 rounded-xl bg-[#FBB501] px-5 text-sm font-semibold shadow-[0_2px_0_#C99200] transition hover:bg-[#FAA212] ${FOCUS}`}
             >
               <Plus size={16} />
               New shipment
@@ -477,511 +391,571 @@ export default function VendorDashboardPage() {
           </div>
         </header>
 
-        {/* Errors */}
-        {error && (
-          <div
-            role="alert"
-            className="mt-5 flex items-start justify-between gap-3 border border-[#E6C1B8] bg-[#FFF0EC] px-4 py-3 text-sm text-[#873624]"
-          >
-            <div className="flex items-start gap-2">
-              <XCircle size={17} className="mt-0.5 shrink-0" />
-              <p>{error}</p>
+        {/* ---------- Hero ---------- */}
+        <section
+          aria-label="Cash on delivery and delivery progress"
+          className="mt-7"
+        >
+          <div className="grid overflow-hidden rounded-2xl bg-[#0A0E12] text-white lg:grid-cols-5">
+            <div className="p-6 sm:p-8 lg:col-span-2">
+              <div className="flex items-center gap-2 text-sm text-[#CFC9BB]">
+                <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#FBB501] text-[#0A0E12]">
+                  <Wallet size={16} />
+                </span>
+                Cash on delivery
+              </div>
+
+              <p className="mt-6 text-4xl font-bold tracking-tight sm:text-5xl">
+                <span className="mr-2 text-2xl font-semibold text-[#FBB501] sm:text-3xl">
+                  Rs.
+                </span>
+                {formatNPR(stats.cod)}
+              </p>
+
+              <p className="mt-3 max-w-xs text-xs leading-5 text-[#A9A395]">
+                Total of recorded shipment amounts, excluding cancelled and
+                returned parcels. This is not a confirmed settlement balance.
+              </p>
+
+              <Link
+                href="/vendor/dashboard/payments"
+                className="mt-6 inline-flex h-10 items-center gap-2 rounded-lg border border-[#3A3D40] px-4 text-sm font-medium transition hover:border-[#FBB501] hover:text-[#FBB501] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FBB501]"
+              >
+                View payments
+                <ArrowUpRight size={15} />
+              </Link>
             </div>
 
-            <button
-              type="button"
-              aria-label="Dismiss error"
-              onClick={() => setError("")}
-              className="shrink-0 p-1 hover:bg-[#FBE1DA]"
-            >
-              <XCircle size={15} />
-            </button>
-          </div>
-        )}
+            <div className="border-t border-[#23272B] bg-[#11161B] p-6 sm:p-8 lg:col-span-3 lg:border-l lg:border-t-0">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-base font-semibold">
+                  Where your parcels are
+                </h2>
 
-        {/* KPI summary */}
-        <section aria-label="Shipment overview" className="mt-7">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.14em] text-[#77756E]">
-              Shipment overview
-            </h2>
+                <span className="text-sm text-[#A9A395]">
+                  {`${stats.total.toLocaleString("en-IN")} total`}
+                </span>
+              </div>
 
-            {loading && (
-              <span className="flex items-center gap-2 text-xs text-[#77756E]">
-                <LoaderCircle size={13} className="animate-spin" />
-                Loading data
-              </span>
-            )}
-          </div>
+              <div
+                className="mt-6 flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-[#23272B]"
+                role="img"
+                aria-label="Shipments by status"
+              >
+                {GROUP_KEYS.map((k) =>
+                  stats.counts[k] > 0 ? (
+                    <div
+                      key={k}
+                      style={{
+                        width: `${(stats.counts[k] / stats.total) * 100}%`,
+                        backgroundColor: GROUPS[k].color,
+                      }}
+                      className="transition-[width] duration-500"
+                    />
+                  ) : null,
+                )}
+              </div>
 
-          <div className="grid grid-cols-2 border-l border-t border-[#E5E0D5] sm:grid-cols-3 xl:grid-cols-6">
-            <Stat
-              label="Total shipments"
-              value={loading ? "—" : stats.total.toLocaleString("en-IN")}
-              icon={<Package size={16} />}
-              note="All recorded shipments"
-            />
+              <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5">
+                {GROUP_KEYS.map((k) => {
+                  const pct =
+                    stats.total > 0
+                      ? (stats.counts[k] / stats.total) * 100
+                      : 0;
 
-            <Stat
-              label="Awaiting pickup"
-              value={loading ? "—" : stats.pending.toLocaleString("en-IN")}
-              icon={<Clock3 size={16} />}
-              note="Pending collection"
-            />
+                  return (
+                    <div key={k}>
+                      <dt className="flex items-center gap-2 text-sm text-[#CFC9BB]">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: GROUPS[k].color }}
+                        />
+                        {GROUPS[k].label}
+                      </dt>
 
-            <Stat
-              label="In transit"
-              value={loading ? "—" : stats.inTransit.toLocaleString("en-IN")}
-              icon={<Truck size={16} />}
-              note="On the delivery network"
-            />
+                      <dd className="mt-1 text-2xl font-semibold tabular-nums">
+                        {stats.counts[k].toLocaleString("en-IN")}
 
-            <Stat
-              label="Delivered"
-              value={loading ? "—" : stats.delivered.toLocaleString("en-IN")}
-              icon={<CheckCircle2 size={16} />}
-              note="Marked as delivered"
-            />
-
-            <Stat
-              label="Cancelled / returned"
-              value={loading ? "—" : stats.cancelled.toLocaleString("en-IN")}
-              icon={<Activity size={16} />}
-              note="Requires review"
-            />
-
-            <Stat
-              label="COD amount"
-              value={
-                loading
-                  ? "—"
-                  : `Rs. ${formatNPR(stats.cod)}`
-              }
-              icon={<Wallet size={16} />}
-              note="Recorded shipment amounts"
-              compact
-            />
+                        <span className="ml-2 text-xs font-normal text-[#8E8979]">
+                          {`${pct.toFixed(1)}%`}
+                        </span>
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </div>
           </div>
         </section>
 
-        {/* Main operational content */}
-        <section className="mt-8">
-          <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">
-                Shipments
+        {/* ---------- Activity + needs attention ---------- */}
+        <section
+          className="mt-4 grid gap-4 lg:grid-cols-5"
+          aria-label="Recent activity"
+        >
+          <div className="rounded-2xl border border-[#E5E0D5] bg-white p-5 sm:p-6 lg:col-span-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-base font-semibold">
+                Parcels booked this week
               </h2>
+
+              <span className="text-sm text-[#77756E]">
+                {`${week.total} in 7 days`}
+              </span>
+            </div>
+
+            <div
+              className="mt-6 grid h-36 grid-cols-7 items-end gap-2 sm:gap-3"
+              role="img"
+              aria-label={`Parcels booked per day over the last 7 days: ${week.days
+                .map((d) => `${d.label} ${d.count}`)
+                .join(", ")}`}
+            >
+              {week.days.map((d, i) => {
+                const isToday = i === week.days.length - 1;
+                const h =
+                  d.count === 0
+                    ? 4
+                    : Math.max(10, (d.count / week.max) * 100);
+
+                return (
+                  <div
+                    key={d.key}
+                    className="flex h-full flex-col items-center justify-end gap-2"
+                  >
+                    <span className="text-xs font-semibold tabular-nums text-[#4D4A43]">
+                      {d.count === 0 ? "" : d.count}
+                    </span>
+
+                    <div
+                      title={`${d.label}: ${d.count} parcels`}
+                      style={{ height: `${h}%` }}
+                      className={`w-full max-w-10 rounded-t-lg transition-[height] duration-500 ${
+                        d.count === 0
+                          ? "bg-[#F0EBDD]"
+                          : isToday
+                            ? "bg-[#FBB501]"
+                            : "bg-[#F1D47A]"
+                      }`}
+                    />
+
+                    <span
+                      className={`text-xs ${
+                        isToday
+                          ? "font-semibold text-[#0A0E12]"
+                          : "text-[#77756E]"
+                      }`}
+                    >
+                      {d.label}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#E5E0D5] bg-white p-5 sm:p-6 lg:col-span-2">
+            <h2 className="text-base font-semibold">Needs your attention</h2>
+
+            <p className="mt-1 text-sm text-[#77756E]">
+              Cancelled, returned or failed parcels.
+            </p>
+
+            {attention.length === 0 ? (
+              <div className="mt-5 flex items-center gap-3 rounded-xl bg-[#EEF7F0] px-4 py-4 text-sm text-[#23693A]">
+                <CheckCircle2 size={18} className="shrink-0" />
+                Nothing to review. All your parcels are moving.
+              </div>
+            ) : (
+              <ul className="mt-4 divide-y divide-[#F1EDE3]">
+                {attention.map((s, i) => {
+                  const t = getTrackingNumber(s);
+
+                  return (
+                    <li key={s._id || s.id || `${t}-${i}`}>
+                      <Link
+                        href={`/track?tracking=${encodeURIComponent(t)}`}
+                        className={`group flex items-center justify-between gap-3 py-3 ${FOCUS}`}
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate font-mono text-sm font-semibold">
+                            {t}
+                          </span>
+
+                          <span className="block truncate text-xs text-[#77756E]">
+                            {getRecipient(s)} · {formatStatus(s.status)}
+                          </span>
+                        </span>
+
+                        <ArrowUpRight
+                          size={15}
+                          className="shrink-0 text-[#77756E] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                        />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        {/* ---------- Shipments ---------- */}
+        <section className="mt-8" aria-label="Shipments">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">
+                Your shipments
+              </h2>
+
               <p className="mt-1 text-sm text-[#77756E]">
-                Search and review your shipment records.
+                Search, filter and export your parcels.
               </p>
             </div>
 
             <button
               type="button"
               onClick={exportCsv}
-              disabled={filteredShipments.length === 0}
-              className="inline-flex h-9 items-center justify-center gap-2 self-start border border-[#D8D1C3] bg-white px-3 text-sm font-medium transition-colors hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-50 sm:self-auto"
+              disabled={filtered.length === 0}
+              className={`inline-flex h-10 items-center gap-2 self-start rounded-xl border border-[#E5E0D5] bg-white px-4 text-sm font-medium transition hover:bg-[#FFFCF5] disabled:opacity-50 sm:self-auto ${FOCUS}`}
             >
               <Download size={15} />
               Export CSV
             </button>
           </div>
 
-          <div className="overflow-hidden border border-[#E5E0D5] bg-white">
-            {/* Search and filters */}
-            <div className="flex flex-col gap-3 border-b border-[#E5E0D5] p-4 lg:flex-row lg:items-center lg:justify-between">
-              <form
-                onSubmit={handleSearch}
-                className="relative w-full lg:max-w-md"
-              >
+          <div className="overflow-hidden rounded-2xl border border-[#E5E0D5] bg-white">
+            <div
+              role="tablist"
+              aria-label="Filter by status"
+              className="flex gap-1 overflow-x-auto border-b border-[#EEE9DF] px-2 pt-2"
+            >
+              {tabs.map((t) => {
+                const active = tab === t.key;
+
+                return (
+                  <button
+                    key={t.key}
+                    role="tab"
+                    aria-selected={active}
+                    type="button"
+                    onClick={() => {
+                      setTab(t.key);
+                      setPage(1);
+                    }}
+                    className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-3 pb-3 pt-2 text-sm transition-colors ${
+                      active
+                        ? "border-[#FBB501] font-semibold text-[#0A0E12]"
+                        : "border-transparent text-[#77756E] hover:text-[#0A0E12]"
+                    }`}
+                  >
+                    {t.label}
+
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs tabular-nums ${
+                        active
+                          ? "bg-[#FBB501] text-[#0A0E12]"
+                          : "bg-[#F3EFE6] text-[#77756E]"
+                      }`}
+                    >
+                      {t.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
                 <Search
                   size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-[#77756E]"
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#77756E]"
                 />
 
                 <input
                   type="search"
                   value={search}
-                  onChange={(event) => {
-                    setSearch(event.target.value);
-                    setCurrentPage(1);
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
                   }}
-                  placeholder="Search tracking, recipient, destination..."
+                  placeholder="Search by tracking ID, name, phone or address"
                   aria-label="Search shipments"
-                  className="h-10 w-full border border-[#E5E0D5] bg-white pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-[#A29B8D] focus:border-[#C99A00]"
+                  className="h-11 w-full rounded-xl border border-[#E5E0D5] bg-[#FFFCF5] pl-10 pr-3 text-sm outline-none transition placeholder:text-[#A29B8D] focus:border-[#FBB501] focus:bg-white focus:ring-4 focus:ring-[#FBB501]/20"
                 />
-              </form>
-
-              <div className="flex flex-wrap gap-2">
-                <div className="relative">
-                  <label
-                    htmlFor="shipment-status"
-                    className="sr-only"
-                  >
-                    Filter by shipment status
-                  </label>
-
-                  <select
-                    id="shipment-status"
-                    value={statusFilter}
-                    onChange={(event) => {
-                      setStatusFilter(event.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="h-10 max-w-full border border-[#E5E0D5] bg-white px-3 text-sm outline-none focus:border-[#C99A00]"
-                  >
-                    {STATUS_OPTIONS.map((status) => (
-                      <option key={status} value={status}>
-                        {status === "ALL" ? "All statuses" : formatStatus(status)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="relative">
-                  <label htmlFor="shipment-date" className="sr-only">
-                    Filter by shipment date
-                  </label>
-
-                  <select
-                    id="shipment-date"
-                    value={dateFilter}
-                    onChange={(event) => {
-                      setDateFilter(event.target.value);
-                      setCurrentPage(1);
-                    }}
-                    className="h-10 border border-[#E5E0D5] bg-white px-3 text-sm outline-none focus:border-[#C99A00]"
-                  >
-                    <option value="ALL">All dates</option>
-                    <option value="TODAY">Today</option>
-                    <option value="7_DAYS">Last 7 days</option>
-                    <option value="30_DAYS">Last 30 days</option>
-                  </select>
-                </div>
               </div>
+
+              <label htmlFor="shipment-date" className="sr-only">
+                Filter by shipment date
+              </label>
+
+              <select
+                id="shipment-date"
+                value={dateFilter}
+                onChange={(e) => {
+                  setDateFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="h-11 rounded-xl border border-[#E5E0D5] bg-[#FFFCF5] px-3 text-sm outline-none focus:border-[#FBB501] focus:ring-4 focus:ring-[#FBB501]/20"
+              >
+                <option value="ALL">All dates</option>
+                <option value="TODAY">Today</option>
+                <option value="7_DAYS">Last 7 days</option>
+                <option value="30_DAYS">Last 30 days</option>
+              </select>
             </div>
 
-            {/* Shipment table */}
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[850px] border-collapse text-left">
-                <thead className="bg-[#FAF7EF] text-[10px] font-semibold uppercase tracking-[0.12em] text-[#77756E]">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold">Tracking ID</th>
-                    <th className="px-4 py-3 font-semibold">Recipient</th>
-                    <th className="px-4 py-3 font-semibold">Destination</th>
-                    <th className="px-4 py-3 font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">
-                      Amount
-                    </th>
-                    <th className="px-4 py-3 font-semibold">Created</th>
-                    <th className="px-4 py-3 text-right font-semibold">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
+            {visible.length === 0 ? (
+              <div className="px-4 py-16 text-center">
+                <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#FFF3CC] text-[#C99200]">
+                  <Package size={22} />
+                </span>
 
-                <tbody className="divide-y divide-[#EEE9DF]">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center">
-                        <LoaderCircle
-                          size={22}
-                          className="mx-auto animate-spin text-[#A38A43]"
-                        />
-                        <p className="mt-3 text-sm text-[#77756E]">
-                          Loading shipment records...
-                        </p>
-                      </td>
-                    </tr>
-                  ) : visibleShipments.length > 0 ? (
-                    visibleShipments.map((shipment, index) => {
-                      const tracking = getTrackingNumber(shipment);
-                      const status = normalizeStatus(shipment.status);
-
-                      return (
-                        <tr
-                          key={
-                            shipment._id ||
-                            shipment.id ||
-                            `${tracking}-${index}`
-                          }
-                          className="transition-colors hover:bg-[#FFFCF5]"
-                        >
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2">
-                              <span className="whitespace-nowrap text-sm font-semibold">
-                                {tracking}
-                              </span>
-
-                              <button
-                                type="button"
-                                title="Copy tracking number"
-                                aria-label={`Copy tracking number ${tracking}`}
-                                onClick={() => void copyTracking(tracking)}
-                                className="p-1 text-[#77756E] transition-colors hover:bg-[#F5EFDF] hover:text-[#0A0E12]"
-                              >
-                                {copiedTracking === tracking ? (
-                                  <Check size={13} />
-                                ) : (
-                                  <Copy size={13} />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <p className="text-sm font-medium">
-                              {getRecipient(shipment)}
-                            </p>
-                            {(shipment.recipientPhone ||
-                              shipment.receiverPhone) && (
-                              <p className="mt-1 text-xs text-[#77756E]">
-                                {shipment.recipientPhone ||
-                                  shipment.receiverPhone}
-                              </p>
-                            )}
-                          </td>
-
-                          <td className="max-w-[220px] px-4 py-4">
-                            <span className="block truncate text-sm text-[#4D4A43]">
-                              {getDestination(shipment)}
-                            </span>
-                          </td>
-
-                          <td className="px-4 py-4">
-                            <span
-                              className={`inline-flex whitespace-nowrap border px-2 py-1 text-[11px] font-medium ${getStatusStyle(status)}`}
-                            >
-                              {formatStatus(status)}
-                            </span>
-                          </td>
-
-                          <td className="whitespace-nowrap px-4 py-4 text-right text-sm tabular-nums">
-                            Rs. {formatNPR(getAmount(shipment))}
-                          </td>
-
-                          <td className="whitespace-nowrap px-4 py-4 text-sm text-[#77756E]">
-                            {formatDate(shipment.createdAt)}
-                          </td>
-
-                          <td className="px-4 py-4 text-right">
-                            <Link
-                              href={`/track?tracking=${encodeURIComponent(tracking)}`}
-                              title={`Track ${tracking}`}
-                              aria-label={`Track shipment ${tracking}`}
-                              className="inline-flex h-8 items-center justify-center gap-1 border border-[#E5E0D5] px-2 text-xs font-medium transition-colors hover:border-[#FBB501] hover:bg-[#FFF8E2]"
-                            >
-                              View
-                              <ExternalLink size={12} />
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  ) : (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-16 text-center">
-                        <Package
-                          size={25}
-                          className="mx-auto text-[#B8B0A0]"
-                        />
-
-                        <p className="mt-3 text-sm font-semibold">
-                          No shipments found
-                        </p>
-
-                        <p className="mt-1 text-sm text-[#77756E]">
-                          {shipments.length === 0
-                            ? "Your shipment records will appear here when available."
-                            : "Try changing your search or filters."}
-                        </p>
-
-                        {shipments.length === 0 && (
-                          <Link
-                            href="/vendor/dashboard/shipments/create"
-                            className="mt-4 inline-flex h-9 items-center gap-2 bg-[#FBB501] px-3 text-sm font-semibold hover:bg-[#FAA212]"
-                          >
-                            <Plus size={15} />
-                            Create shipment
-                          </Link>
-                        )}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {!loading && filteredShipments.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-[#E5E0D5] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-[#77756E]">
-                  Showing{" "}
-                  <span className="font-medium text-[#0A0E12]">
-                    {(safePage - 1) * pageSize + 1}–
-                    {Math.min(safePage * pageSize, filteredShipments.length)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-medium text-[#0A0E12]">
-                    {filteredShipments.length}
-                  </span>{" "}
-                  shipments
+                <p className="mt-4 text-sm font-semibold">
+                  No shipments found
                 </p>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={safePage <= 1}
-                    onClick={() => setCurrentPage((page) => page - 1)}
-                    className="h-8 border border-[#E5E0D5] px-3 text-xs font-medium hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Previous
-                  </button>
+                <p className="mt-1 text-sm text-[#77756E]">
+                  {shipments.length === 0
+                    ? "Create your first shipment and it will show up here."
+                    : "Nothing matches these filters. Try a different search or status."}
+                </p>
 
-                  <span className="min-w-16 text-center text-xs text-[#77756E]">
-                    Page {safePage} of {totalPages}
-                  </span>
-
-                  <button
-                    type="button"
-                    disabled={safePage >= totalPages}
-                    onClick={() => setCurrentPage((page) => page + 1)}
-                    className="h-8 border border-[#E5E0D5] px-3 text-xs font-medium hover:bg-[#FAF7EF] disabled:cursor-not-allowed disabled:opacity-40"
+                {shipments.length === 0 && (
+                  <Link
+                    href="/vendor/dashboard/shipments/create"
+                    className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#FBB501] px-4 text-sm font-semibold hover:bg-[#FAA212]"
                   >
-                    Next
-                  </button>
-                </div>
+                    <Plus size={15} />
+                    Create shipment
+                  </Link>
+                )}
               </div>
+            ) : (
+              <>
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full border-collapse text-left">
+                    <thead>
+                      <tr className="border-y border-[#EEE9DF] bg-[#FAF7EF] text-xs text-[#77756E]">
+                        <th className="px-5 py-3 font-medium">Tracking ID</th>
+                        <th className="px-5 py-3 font-medium">Recipient</th>
+                        <th className="px-5 py-3 font-medium">Destination</th>
+                        <th className="px-5 py-3 font-medium">Status</th>
+                        <th className="px-5 py-3 text-right font-medium">
+                          COD amount
+                        </th>
+                        <th className="px-5 py-3 font-medium">Created</th>
+                        <th className="px-5 py-3 text-right font-medium">
+                          <span className="sr-only">Action</span>
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-[#F1EDE3]">
+                      {visible.map((s, i) => {
+                        const tracking = getTrackingNumber(s);
+
+                        return (
+                          <tr
+                            key={s._id || s.id || `${tracking}-${i}`}
+                            className="transition-colors hover:bg-[#FFFCF5]"
+                          >
+                            <td className="px-5 py-4">
+                              <div className="flex items-center gap-1.5">
+                                <span className="whitespace-nowrap font-mono text-sm font-semibold">
+                                  {tracking}
+                                </span>
+
+                                <CopyButton
+                                  tracking={tracking}
+                                  copied={copied === tracking}
+                                  onCopy={copyTracking}
+                                />
+                              </div>
+                            </td>
+
+                            <td className="px-5 py-4">
+                              <p className="text-sm font-medium">
+                                {getRecipient(s)}
+                              </p>
+
+                              {getPhone(s) && (
+                                <p className="mt-0.5 text-xs text-[#77756E]">
+                                  {getPhone(s)}
+                                </p>
+                              )}
+                            </td>
+
+                            <td className="max-w-[240px] px-5 py-4">
+                              <span className="flex items-center gap-1.5 text-sm text-[#4D4A43]">
+                                <MapPin
+                                  size={13}
+                                  className="shrink-0 text-[#A29B8D]"
+                                />
+                                <span className="truncate">
+                                  {getDestination(s)}
+                                </span>
+                              </span>
+                            </td>
+
+                            <td className="px-5 py-4">
+                              <StatusBadge status={s.status} />
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-semibold tabular-nums">
+                              Rs. {formatNPR(getAmount(s))}
+                            </td>
+
+                            <td className="whitespace-nowrap px-5 py-4 text-sm text-[#77756E]">
+                              {formatDate(s.createdAt)}
+                            </td>
+
+                            <td className="px-5 py-4 text-right">
+                              <TrackLink tracking={tracking} />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <ul className="divide-y divide-[#F1EDE3] md:hidden">
+                  {visible.map((s, i) => {
+                    const tracking = getTrackingNumber(s);
+
+                    return (
+                      <li
+                        key={s._id || s.id || `${tracking}-${i}`}
+                        className="space-y-3 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-mono text-sm font-semibold">
+                              {tracking}
+                            </span>
+
+                            <CopyButton
+                              tracking={tracking}
+                              copied={copied === tracking}
+                              onCopy={copyTracking}
+                            />
+                          </div>
+
+                          <StatusBadge status={s.status} />
+                        </div>
+
+                        <div>
+                          <p className="text-sm font-medium">
+                            {getRecipient(s)}
+                          </p>
+
+                          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-[#77756E]">
+                            <MapPin size={12} className="shrink-0" />
+                            <span className="truncate">
+                              {getDestination(s)}
+                            </span>
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold tabular-nums">
+                              Rs. {formatNPR(getAmount(s))}
+                            </p>
+
+                            <p className="text-xs text-[#77756E]">
+                              {formatDate(s.createdAt)}
+                            </p>
+                          </div>
+
+                          <TrackLink tracking={tracking} />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="flex flex-col gap-3 border-t border-[#EEE9DF] px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-[#77756E]">
+                    Showing{" "}
+                    <span className="font-semibold text-[#0A0E12]">
+                      {(safePage - 1) * PAGE_SIZE + 1}–
+                      {Math.min(safePage * PAGE_SIZE, filtered.length)}
+                    </span>{" "}
+                    of{" "}
+                    <span className="font-semibold text-[#0A0E12]">
+                      {filtered.length}
+                    </span>{" "}
+                    shipments
+                  </p>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={safePage <= 1}
+                      onClick={() => setPage((p) => p - 1)}
+                      className="h-9 rounded-lg border border-[#E5E0D5] px-3 text-xs font-medium hover:bg-[#FAF7EF] disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="min-w-20 text-center text-xs text-[#77756E]">
+                      Page {safePage} of {totalPages}
+                    </span>
+
+                    <button
+                      type="button"
+                      disabled={safePage >= totalPages}
+                      onClick={() => setPage((p) => p + 1)}
+                      className="h-9 rounded-lg border border-[#E5E0D5] px-3 text-xs font-medium hover:bg-[#FAF7EF] disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </section>
 
-        {/* Operational summaries */}
-        <section className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-5">
-          <div className="border border-[#E5E0D5] bg-white p-5 sm:p-6 lg:col-span-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-base font-semibold">
-                  Delivery performance
-                </h2>
-                <p className="mt-1 text-sm text-[#77756E]">
-                  Distribution of your recorded shipments by status.
-                </p>
-              </div>
+        {/* ---------- Quick actions ---------- */}
+        <section
+          className="mt-8 pb-8"
+          aria-label="Quick actions"
+        >
+          <h2 className="mb-4 text-xl font-bold tracking-tight">
+            Quick actions
+          </h2>
 
-              <Activity size={18} className="text-[#77756E]" />
-            </div>
-
-            <div className="mt-6 space-y-5">
-              <ProgressRow
-                label="Delivered"
-                count={stats.delivered}
-                total={stats.total}
-                color="#478653"
-              />
-
-              <ProgressRow
-                label="In transit"
-                count={stats.inTransit}
-                total={stats.total}
-                color="#D9A100"
-              />
-
-              <ProgressRow
-                label="Awaiting pickup"
-                count={stats.pending}
-                total={stats.total}
-                color="#8A8376"
-              />
-
-              <ProgressRow
-                label="Cancelled / returned"
-                count={stats.cancelled}
-                total={stats.total}
-                color="#B34B36"
-              />
-            </div>
-
-            <p className="mt-5 border-t border-[#EEE9DF] pt-4 text-xs leading-5 text-[#77756E]">
-              Percentages are calculated from the shipment records returned by
-              the current API. They are not a delivery-time SLA or a guarantee
-              of performance.
-            </p>
-          </div>
-
-          <div className="flex flex-col justify-between bg-[#0A0E12] p-5 text-white sm:p-6 lg:col-span-2">
-            <div>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#D5D0C5]">
-                  COD overview
-                </p>
-                <Wallet size={18} className="text-[#FBB501]" />
-              </div>
-
-              <p className="mt-7 text-sm text-[#D5D0C5]">
-                Recorded shipment amount
-              </p>
-
-              <p className="mt-2 break-words text-2xl font-semibold tracking-tight sm:text-3xl">
-                Rs. {loading ? "—" : formatNPR(stats.cod)}
-              </p>
-
-              <p className="mt-3 max-w-sm text-xs leading-5 text-[#B5B0A6]">
-                Calculated from the available shipment amount fields. This
-                figure is not a verified settlement balance or confirmed
-                remittance.
-              </p>
-            </div>
-
-            <Link
-              href="/vendor/dashboard/payments"
-              className="mt-8 inline-flex min-h-10 items-center justify-between gap-3 border border-[#46484A] px-3 text-sm font-medium transition-colors hover:border-[#FBB501] hover:bg-[#191C1F]"
-            >
-              View payment records
-              <ArrowRight size={15} />
-            </Link>
-          </div>
-        </section>
-
-        {/* Quick actions */}
-        <section className="mt-8 pb-8">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold tracking-tight">
-              Quick actions
-            </h2>
-            <p className="mt-1 text-sm text-[#77756E]">
-              Common tasks for your daily operations.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 border-l border-t border-[#E5E0D5] sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <QuickAction
               href="/vendor/dashboard/shipments/create"
               title="Create shipment"
-              description="Register a new customer delivery."
-              icon={<Plus size={17} />}
+              description="Book a new customer delivery."
+              icon={<Plus size={18} />}
               primary
             />
 
             <QuickAction
               href="/track"
-              title="Track shipment"
-              description="Check the latest shipment status."
-              icon={<Truck size={17} />}
+              title="Track a parcel"
+              description="Check the latest status by tracking ID."
+              icon={<Truck size={18} />}
             />
 
             <QuickAction
               href="/calculator"
-              title="Calculate delivery"
-              description="Estimate the delivery charge."
-              icon={<Wallet size={17} />}
+              title="Estimate delivery charge"
+              description="Get a rate before you book."
+              icon={<Calculator size={18} />}
             />
 
             <QuickAction
               href="/contact"
-              title="Get support"
-              description="Contact the Aarambha team."
-              icon={<CalendarDays size={17} />}
+              title="Contact support"
+              description="Talk to the Aarambha team."
+              icon={<LifeBuoy size={18} />}
             />
           </div>
         </section>
@@ -990,84 +964,76 @@ export default function VendorDashboardPage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  icon,
-  note,
-  compact = false,
-}: {
-  label: string;
-  value: string;
-  icon: React.ReactNode;
-  note: string;
-  compact?: boolean;
-}) {
+/* ----------------------------- Pieces ----------------------------- */
+
+const BADGE: Record<GroupKey, { cls: string; icon: ReactNode }> = {
+  PENDING: {
+    cls: "bg-[#F3EFE6] text-[#5E5848]",
+    icon: <Clock3 size={12} />,
+  },
+  IN_TRANSIT: {
+    cls: "bg-[#FFF3CC] text-[#7A5800]",
+    icon: <Truck size={12} />,
+  },
+  DELIVERED: {
+    cls: "bg-[#E4F4E8] text-[#23693A]",
+    icon: <CheckCircle2 size={12} />,
+  },
+  ISSUES: {
+    cls: "bg-[#FDE8E3] text-[#9A3926]",
+    icon: <AlertTriangle size={12} />,
+  },
+};
+
+function StatusBadge({ status }: { status?: string }) {
+  const b = BADGE[groupOf(status)];
+
   return (
-    <div className="min-w-0 border-b border-r border-[#E5E0D5] bg-white p-4 transition-colors hover:bg-[#FFFCF5] sm:p-5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-xs font-medium text-[#77756E]">
-          {label}
-        </span>
-        <span className="shrink-0 text-[#9A8B67]">{icon}</span>
-      </div>
-
-      <p
-        className={`mt-4 break-words font-semibold leading-tight tracking-tight text-[#0A0E12] ${
-          compact ? "text-lg sm:text-xl" : "text-2xl sm:text-3xl"
-        }`}
-      >
-        {value}
-      </p>
-
-      <p className="mt-2 text-[11px] leading-4 text-[#8B8579]">{note}</p>
-    </div>
+    <span
+      className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${b.cls}`}
+    >
+      {b.icon}
+      {formatStatus(status)}
+    </span>
   );
 }
 
-function ProgressRow({
-  label,
-  count,
-  total,
-  color,
+function CopyButton({
+  tracking,
+  copied,
+  onCopy,
 }: {
-  label: string;
-  count: number;
-  total: number;
-  color: string;
+  tracking: string;
+  copied: boolean;
+  onCopy: (t: string) => void;
 }) {
-  const percentage = total > 0 ? (count / total) * 100 : 0;
-
   return (
-    <div>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-sm text-[#4D4A43]">{label}</span>
+    <button
+      type="button"
+      title="Copy tracking ID"
+      aria-label={`Copy tracking ID ${tracking}`}
+      onClick={() => onCopy(tracking)}
+      className="shrink-0 rounded-md p-1.5 text-[#77756E] transition hover:bg-[#F5EFDF] hover:text-[#0A0E12]"
+    >
+      {copied ? (
+        <Check size={14} className="text-[#23693A]" />
+      ) : (
+        <Copy size={14} />
+      )}
+    </button>
+  );
+}
 
-        <span className="shrink-0 text-xs tabular-nums text-[#77756E]">
-          {count}{" "}
-          <span className="text-[#B0A99B]">
-            ({percentage.toFixed(1)}%)
-          </span>
-        </span>
-      </div>
-
-      <div
-        className="h-1.5 w-full overflow-hidden bg-[#F0EDE5]"
-        role="progressbar"
-        aria-label={label}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-valuenow={Number(percentage.toFixed(1))}
-      >
-        <div
-          className="h-full transition-[width] duration-300"
-          style={{
-            width: `${percentage}%`,
-            backgroundColor: color,
-          }}
-        />
-      </div>
-    </div>
+function TrackLink({ tracking }: { tracking: string }) {
+  return (
+    <Link
+      href={`/track?tracking=${encodeURIComponent(tracking)}`}
+      aria-label={`Track shipment ${tracking}`}
+      className={`inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#E5E0D5] px-3 text-xs font-semibold transition hover:border-[#FBB501] hover:bg-[#FFF8E2] ${FOCUS}`}
+    >
+      Track
+      <ArrowUpRight size={13} />
+    </Link>
   );
 }
 
@@ -1081,46 +1047,46 @@ function QuickAction({
   href: string;
   title: string;
   description: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   primary?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className={`group flex min-h-32 flex-col justify-between gap-5 border-b border-r border-[#E5E0D5] p-4 transition-colors sm:p-5 ${
+      className={`group flex items-start gap-4 rounded-2xl border p-5 transition ${FOCUS} ${
         primary
-          ? "bg-[#FBB501] text-[#0A0E12] hover:bg-[#FAA212]"
-          : "bg-white hover:bg-[#FFFCF5]"
+          ? "border-[#FBB501] bg-[#FBB501] hover:bg-[#FAA212]"
+          : "border-[#E5E0D5] bg-white hover:border-[#FBB501] hover:bg-[#FFFCF5]"
       }`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <span
-          className={
-            primary
-              ? "text-[#0A0E12]"
-              : "text-[#8D7B4B] group-hover:text-[#0A0E12]"
-          }
-        >
-          {icon}
+      <span
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
+          primary
+            ? "bg-[#0A0E12] text-[#FBB501]"
+            : "bg-[#FFF3CC] text-[#8A6500]"
+        }`}
+      >
+        {icon}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold">{title}</span>
+
+          <ArrowUpRight
+            size={15}
+            className="shrink-0 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+          />
         </span>
 
-        <ArrowUpRight
-          size={15}
-          className="transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
-        />
-      </div>
-
-      <div>
-        <p className="text-sm font-semibold">{title}</p>
-
-        <p
-          className={`mt-1 text-xs leading-5 ${
+        <span
+          className={`mt-1 block text-xs leading-5 ${
             primary ? "text-[#3F351D]" : "text-[#77756E]"
           }`}
         >
           {description}
-        </p>
-      </div>
+        </span>
+      </span>
     </Link>
   );
 }

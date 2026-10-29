@@ -10,11 +10,16 @@ import {
   FileSpreadsheet,
   FileCheck2,
   AlertCircle,
-  X,
   CheckCircle2,
+  X,
+  RefreshCw,
 } from "lucide-react";
 
-const requiredColumns = [
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+).replace(/\/$/, "");
+
+const REQUIRED_COLUMNS = [
   "sender_name",
   "sender_phone",
   "sender_address",
@@ -27,100 +32,228 @@ const requiredColumns = [
   "weight",
   "parcel_value",
   "payment_method",
-];
+] as const;
 
-type PreviewRow = {
-  values: string[];
-  line: number;
+type CsvRow = Record<string, string>;
+
+type ValidatedRow = {
+  rowNumber: number;
+  values: CsvRow;
   errors: string[];
 };
 
-function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = "";
-  let inQuotes = false;
+type ShipmentPayload = {
+  senderName: string;
+  senderPhone: string;
+  senderAddress: string;
+  senderCity: string;
+  receiverName: string;
+  receiverPhone: string;
+  receiverAddress: string;
+  receiverCity: string;
+  description: string;
+  weight: number;
+  parcelValue: number;
+  paymentMethod: "COD" | "PREPAID";
+};
 
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
+const SAMPLE_ROW = [
+  "Muna Store",
+  "9800000001",
+  "Thamel",
+  "Kathmandu",
+  "Ram Sharma",
+  "9800000002",
+  "Lakeside",
+  "Pokhara",
+  "Clothing",
+  "1",
+  "2500",
+  "COD",
+];
 
-    if (char === '"' && inQuotes && line[i + 1] === '"') {
-      current += '"';
-      i++;
-    } else if (char === '"') {
-      inQuotes = !inQuotes;
-    } else if (char === "," && !inQuotes) {
-      result.push(current.trim());
-      current = "";
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+
+    if (char === '"') {
+      if (quoted && text[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (char === "," && !quoted) {
+      row.push(cell);
+      cell = "";
+    } else if ((char === "\n" || char === "\r") && !quoted) {
+      if (char === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell);
+
+      if (row.some((value) => value.trim() !== "")) {
+        rows.push(row);
+      }
+
+      row = [];
+      cell = "";
     } else {
-      current += char;
+      cell += char;
     }
   }
 
-  result.push(current.trim());
-  return result;
+  if (quoted) {
+    throw new Error("Your CSV contains an unclosed quotation mark.");
+  }
+
+  if (cell.length || row.length) {
+    row.push(cell);
+    if (row.some((value) => value.trim() !== "")) rows.push(row);
+  }
+
+  return rows;
 }
 
-function downloadFile(content: string, filename: string) {
-  const blob = new Blob(["\uFEFF" + content], {
+function csvEscape(value: unknown) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
+  const blob = new Blob(["\uFEFF" + csv], {
     type: "text/csv;charset=utf-8;",
   });
+
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-
   anchor.href = url;
   anchor.download = filename;
   anchor.click();
-
   URL.revokeObjectURL(url);
 }
 
-export default function BulkUploadPage() {
-  const inputRef = useRef<HTMLInputElement>(null);
+function validateRows(
+  headers: string[],
+  records: string[][]
+): ValidatedRow[] {
+  return records.map((record, index) => {
+    const values: CsvRow = {};
 
+    headers.forEach((header, columnIndex) => {
+      values[header] = (record[columnIndex] ?? "").trim();
+    });
+
+    const errors: string[] = [];
+    const rowNumber = index + 2;
+
+    const requiredFields = [
+      "sender_name",
+      "sender_phone",
+      "sender_address",
+      "sender_city",
+      "receiver_name",
+      "receiver_phone",
+      "receiver_address",
+      "receiver_city",
+      "parcel_description",
+      "weight",
+      "parcel_value",
+      "payment_method",
+    ];
+
+    for (const field of requiredFields) {
+      if (!values[field]) errors.push(`${field} is required`);
+    }
+
+    const phoneRegex = /^9[678]\d{8}$/;
+
+    if (values.sender_phone && !phoneRegex.test(values.sender_phone)) {
+      errors.push("Invalid sender phone (use a 10-digit Nepali mobile number)");
+    }
+
+    if (values.receiver_phone && !phoneRegex.test(values.receiver_phone)) {
+      errors.push("Invalid receiver phone (use a 10-digit Nepali mobile number)");
+    }
+
+    const weight = Number(values.weight);
+    if (values.weight && (!Number.isFinite(weight) || weight <= 0)) {
+      errors.push("Weight must be a number greater than zero");
+    }
+
+    const parcelValue = Number(values.parcel_value);
+    if (
+      values.parcel_value &&
+      (!Number.isFinite(parcelValue) || parcelValue < 0)
+    ) {
+      errors.push("Parcel value must be zero or greater");
+    }
+
+    const method = values.payment_method?.toUpperCase();
+    if (values.payment_method && !["COD", "PREPAID"].includes(method)) {
+      errors.push("Payment method must be COD or PREPAID");
+    }
+
+    return { rowNumber, values, errors };
+  });
+}
+
+function toShipment(row: CsvRow): ShipmentPayload {
+  return {
+    senderName: row.sender_name,
+    senderPhone: row.sender_phone,
+    senderAddress: row.sender_address,
+    senderCity: row.sender_city,
+    receiverName: row.receiver_name,
+    receiverPhone: row.receiver_phone,
+    receiverAddress: row.receiver_address,
+    receiverCity: row.receiver_city,
+    description: row.parcel_description,
+    weight: Number(row.weight),
+    parcelValue: Number(row.parcel_value),
+    paymentMethod: row.payment_method.toUpperCase() as "COD" | "PREPAID",
+  };
+}
+
+export default function BulkShipmentUploadPage() {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState("");
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<PreviewRow[]>([]);
+  const [rows, setRows] = useState<ValidatedRow[]>([]);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importedCount, setImportedCount] = useState<number | null>(null);
 
   const validCount = rows.filter((row) => row.errors.length === 0).length;
   const invalidCount = rows.length - validCount;
+  const allValid = rows.length > 0 && invalidCount === 0;
+
+  function resetFile() {
+    setFileName("");
+    setRows([]);
+    setError("");
+    setMessage("");
+    setImportedCount(null);
+
+    if (inputRef.current) inputRef.current.value = "";
+  }
 
   function downloadTemplate() {
-    const example = [
-      "Muna Store",
-      "9800000001",
-      "Thamel, Kathmandu",
-      "Kathmandu",
-      "Ram Sharma",
-      "9800000002",
-      "Lakeside, Pokhara",
-      "Pokhara",
-      "Clothing",
-      "1",
-      "2500",
-      "COD",
-    ];
-
-    const csv = [
-      requiredColumns,
-      example,
-    ]
-      .map((row) =>
-        row.map((value) => `"${value.replace(/"/g, '""')}"`).join(",")
-      )
-      .join("\n");
-
-    downloadFile(csv, "aarambha-shipment-template.csv");
+    downloadCsv("aarambha-shipment-template.csv", [
+      [...REQUIRED_COLUMNS],
+      SAMPLE_ROW,
+    ]);
   }
 
   async function handleFile(file?: File) {
     setError("");
     setMessage("");
+    setImportedCount(null);
     setRows([]);
-    setHeaders([]);
-    setFileName("");
 
     if (!file) return;
 
@@ -130,188 +263,212 @@ export default function BulkUploadPage() {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be 5 MB or less.");
+      setError("The file is too large. Maximum file size is 5 MB.");
       return;
     }
 
-    setLoading(true);
-
     try {
-      const content = await file.text();
-      const lines = content
-        .replace(/^\uFEFF/, "")
-        .split(/\r?\n/)
-        .filter((line) => line.trim().length > 0);
+      const text = await file.text();
+      const parsed = parseCsv(text);
 
-      if (lines.length < 2) {
-        throw new Error("The CSV must contain a header and at least one data row.");
+      if (parsed.length < 2) {
+        throw new Error("The CSV must contain a header and at least one shipment.");
       }
 
-      const parsedHeaders = parseCsvLine(lines[0]).map((header) =>
-        header.trim().toLowerCase()
+      const headers = parsed[0].map((header, index) =>
+        (index === 0 ? header.replace(/^\uFEFF/, "") : header)
+          .trim()
+          .toLowerCase()
       );
 
-      const missingColumns = requiredColumns.filter(
-        (column) => !parsedHeaders.includes(column)
+      const missingColumns = REQUIRED_COLUMNS.filter(
+        (column) => !headers.includes(column)
       );
 
-      if (missingColumns.length > 0) {
+      if (missingColumns.length) {
         throw new Error(
-          `Missing required columns: ${missingColumns.join(", ")}`
+          `Missing required columns: ${missingColumns.join(", ")}. Download the template and use its exact column names.`
         );
       }
 
-      const parsedRows: PreviewRow[] = lines.slice(1).map((line, index) => {
-        const values = parseCsvLine(line);
-        const rowErrors: string[] = [];
+      const duplicateHeaders = headers.filter(
+        (header, index) => headers.indexOf(header) !== index
+      );
 
-        if (values.length !== parsedHeaders.length) {
-          rowErrors.push("Column count does not match the header.");
-        }
+      if (duplicateHeaders.length) {
+        throw new Error(
+          `Duplicate CSV columns found: ${[...new Set(duplicateHeaders)].join(", ")}`
+        );
+      }
 
-        const getValue = (column: string) =>
-          values[parsedHeaders.indexOf(column)]?.trim() ?? "";
+      const records = parsed.slice(1);
 
-        for (const column of requiredColumns) {
-          if (!getValue(column)) {
-            rowErrors.push(`Missing ${column}.`);
-          }
-        }
+      if (records.some((record) => record.length !== headers.length)) {
+        throw new Error(
+          "One or more CSV rows have a different number of columns than the header."
+        );
+      }
 
-        const weight = Number(getValue("weight"));
-        const parcelValue = Number(getValue("parcel_value"));
-
-        if (getValue("weight") && (!Number.isFinite(weight) || weight <= 0)) {
-          rowErrors.push("Weight must be greater than zero.");
-        }
-
-        if (
-          getValue("parcel_value") &&
-          (!Number.isFinite(parcelValue) || parcelValue < 0)
-        ) {
-          rowErrors.push("Parcel value must be zero or greater.");
-        }
-
-        const paymentMethod = getValue("payment_method").toLowerCase();
-
-        if (
-          paymentMethod &&
-          !["cod", "prepaid"].includes(paymentMethod)
-        ) {
-          rowErrors.push("Payment method must be COD or Prepaid.");
-        }
-
-        return {
-          values,
-          line: index + 2,
-          errors: [...new Set(rowErrors)],
-        };
-      });
+      const validated = validateRows(headers, records);
 
       setFileName(file.name);
-      setHeaders(parsedHeaders);
-      setRows(parsedRows);
-      setMessage("CSV loaded successfully. Review the rows before importing.");
-    } catch (caught) {
+      setRows(validated);
+      setMessage(
+        `Validated ${validated.length} row(s): ${validated.filter((row) => !row.errors.length).length} valid, ${validated.filter((row) => row.errors.length).length} invalid.`
+      );
+    } catch (err) {
       setError(
-        caught instanceof Error ? caught.message : "Could not read the CSV file."
+        err instanceof Error ? err.message : "Could not read this CSV file."
+      );
+    }
+  }
+
+  async function importShipments() {
+    setError("");
+    setMessage("");
+    setImportedCount(null);
+
+    if (!allValid) {
+      setError("Fix all invalid rows before importing shipments.");
+      return;
+    }
+
+    setImporting(true);
+
+    try {
+      const shipments = rows.map((row) => toShipment(row.values));
+
+      const response = await fetch(`${API_URL}/api/shipments/bulk`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ shipments }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.success === false) {
+        throw new Error(
+          payload.message ||
+            `Import failed (${response.status}). Please check the backend API.`
+        );
+      }
+
+      const count =
+        typeof payload.importedCount === "number"
+          ? payload.importedCount
+          : typeof payload.count === "number"
+            ? payload.count
+            : shipments.length;
+
+      setImportedCount(count);
+      setMessage(
+        `The server reported ${count} imported shipment(s).`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Import failed. Please try again."
       );
     } finally {
-      setLoading(false);
+      setImporting(false);
     }
   }
 
   function exportPreview() {
-    const csv = [
-      headers,
-      ...rows.map((row) => row.values),
-    ]
-      .map((row) =>
-        row.map((value) => `"${value.replace(/"/g, '""')}"`).join(",")
-      )
-      .join("\n");
+    const outputRows = [
+      [...REQUIRED_COLUMNS],
+      ...rows.map((row) =>
+        REQUIRED_COLUMNS.map((column) => row.values[column] || "")
+      ),
+    ];
 
-    downloadFile(csv, "shipment-preview.csv");
-  }
-
-  function importShipments() {
-    if (rows.length === 0) {
-      setError("Please select a valid CSV file first.");
-      return;
-    }
-
-    if (invalidCount > 0) {
-      setError("Fix all invalid rows before importing.");
-      return;
-    }
-
-    setError("");
-    setMessage(
-      `${validCount} rows passed validation. Connect your backend API to save these shipments. No shipments have been created yet.`
-    );
-  }
-
-  function clearFile() {
-    setFileName("");
-    setHeaders([]);
-    setRows([]);
-    setError("");
-    setMessage("");
-
-    if (inputRef.current) inputRef.current.value = "";
+    downloadCsv("aarambha-shipment-preview.csv", outputRows);
   }
 
   return (
-    <main className="min-h-screen bg-app p-4 text-fg sm:p-8">
-      <div className="mx-auto max-w-7xl space-y-7">
-        <Link
-          href="/vendor/shipments"
-          className="inline-flex items-center gap-2 text-sm text-muted hover:text-primary"
-        >
-          <ArrowLeft size={17} />
-          Back to Shipments
-        </Link>
-
-        <header className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <p className="text-sm text-muted">Vendor / Shipments / Bulk Upload</p>
-            <h1 className="mt-2 text-3xl font-bold">Bulk Upload</h1>
-            <p className="mt-2 text-sm text-muted">
-              Import multiple shipments using a properly formatted CSV file.
-            </p>
-          </div>
-
-          <button
-            onClick={downloadTemplate}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-hairline px-4 py-3 text-sm font-semibold hover:bg-panel"
+    <main className="min-h-screen bg-[#F7F7F5] p-4 text-[#141B22] sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <header>
+          <Link
+            href="/vendor/shipments"
+            className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-black"
           >
-            <Download size={17} />
-            Download Template
-          </button>
+            <ArrowLeft size={16} /> Back to shipments
+          </Link>
+
+          <h1 className="text-2xl font-bold sm:text-3xl">
+            Bulk shipment upload
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+            Upload a CSV file to validate and import multiple shipments into
+            your vendor account.
+          </p>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-3">
-          <SummaryCard
-            label="Total Rows"
-            value={rows.length}
-            icon={<FileSpreadsheet size={21} />}
-          />
-          <SummaryCard
-            label="Valid Rows"
-            value={validCount}
-            icon={<CheckCircle2 size={21} />}
-          />
-          <SummaryCard
-            label="Invalid Rows"
-            value={invalidCount}
-            icon={<AlertCircle size={21} />}
-          />
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="border border-gray-200 bg-white p-5">
+            <p className="text-sm text-gray-500">Total rows</p>
+            <p className="mt-2 text-3xl font-bold">{rows.length}</p>
+          </div>
+          <div className="border border-gray-200 bg-white p-5">
+            <p className="text-sm text-gray-500">Valid rows</p>
+            <p className="mt-2 text-3xl font-bold text-emerald-700">
+              {validCount}
+            </p>
+          </div>
+          <div className="border border-gray-200 bg-white p-5">
+            <p className="text-sm text-gray-500">Rows with errors</p>
+            <p className="mt-2 text-3xl font-bold text-red-700">
+              {invalidCount}
+            </p>
+          </div>
         </section>
 
-        <section className="card p-5 sm:p-8">
-          <h2 className="text-lg font-semibold">Upload CSV File</h2>
-          <p className="mt-2 text-sm text-muted">
-            CSV files only. Maximum file size: 5 MB.
+        <section className="border border-gray-200 bg-white p-5 sm:p-7">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div>
+              <h2 className="font-bold">1. Prepare your CSV</h2>
+              <p className="mt-1 text-sm text-gray-600">
+                Use the template so the column names match exactly.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={downloadTemplate}
+              className="inline-flex items-center justify-center gap-2 border border-gray-300 px-4 py-2.5 text-sm font-semibold hover:bg-gray-50"
+            >
+              <Download size={16} /> Download CSV template
+            </button>
+          </div>
+
+          <div className="mt-5 border border-gray-200 bg-[#F7F7F5] p-4">
+            <p className="text-sm font-semibold">Required columns</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {REQUIRED_COLUMNS.map((column) => (
+                <span
+                  key={column}
+                  className="border border-gray-200 bg-white px-2 py-1 font-mono text-xs"
+                >
+                  {column}
+                </span>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-gray-500">
+              Phone numbers must use the 10-digit Nepali mobile format. Payment
+              method must be COD or PREPAID. Weight must be greater than zero.
+            </p>
+          </div>
+        </section>
+
+        <section className="border border-gray-200 bg-white p-5 sm:p-7">
+          <h2 className="font-bold">2. Upload your CSV file</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            CSV files only, maximum size 5 MB.
           </p>
 
           <input
@@ -319,205 +476,177 @@ export default function BulkUploadPage() {
             type="file"
             accept=".csv,text/csv"
             className="hidden"
-            onChange={(event) => handleFile(event.target.files?.[0])}
+            onChange={(event) => void handleFile(event.target.files?.[0])}
           />
 
           {!fileName ? (
             <button
               type="button"
               onClick={() => inputRef.current?.click()}
-              disabled={loading}
-              className="mt-6 flex min-h-64 w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-hairline p-6 text-center transition hover:border-primary hover:bg-primary/5 disabled:opacity-50"
+              className="mt-5 flex min-h-48 w-full flex-col items-center justify-center border-2 border-dashed border-gray-300 p-6 text-center hover:border-[#FBB501] hover:bg-[#FEF8EB]"
             >
-              <span className="rounded-2xl bg-primary/15 p-4 text-primary">
-                <Upload size={32} />
-              </span>
-              <span className="mt-5 font-semibold">
-                {loading ? "Reading CSV..." : "Choose a CSV file"}
-              </span>
-              <span className="mt-2 text-sm text-muted">
-                Click here to browse files
+              <Upload size={30} className="mb-3 text-gray-500" />
+              <span className="font-semibold">Choose a CSV file</span>
+              <span className="mt-1 text-sm text-gray-500">
+                Click here to browse your computer
               </span>
             </button>
           ) : (
-            <div className="mt-6 flex flex-col justify-between gap-4 rounded-2xl border border-hairline bg-panel p-5 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-4">
-                <div className="rounded-xl bg-primary/15 p-3 text-primary">
-                  <FileCheck2 size={26} />
-                </div>
-                <div>
-                  <p className="font-semibold">{fileName}</p>
-                  <p className="mt-1 text-sm text-muted">
-                    {rows.length} data rows loaded
+            <div className="mt-5 flex flex-col justify-between gap-4 border border-gray-200 p-4 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 items-center gap-3">
+                <FileSpreadsheet size={28} className="shrink-0 text-gray-600" />
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{fileName}</p>
+                  <p className="text-sm text-gray-500">
+                    {rows.length} shipment row(s) parsed
                   </p>
                 </div>
               </div>
-
               <button
-                onClick={clearFile}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-hairline px-4 py-2.5 text-sm hover:bg-app"
+                type="button"
+                onClick={resetFile}
+                className="inline-flex items-center justify-center gap-2 border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
               >
-                <X size={16} />
-                Remove File
+                <X size={16} /> Remove file
               </button>
             </div>
           )}
 
           {error && (
-            <div role="alert" className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-600">
-              {error}
+            <div className="mt-4 flex items-start gap-2 border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <p>{error}</p>
             </div>
           )}
 
-          {message && (
-            <div role="status" className="mt-5 rounded-xl border border-primary/30 bg-primary/10 p-4 text-sm">
-              {message}
+          {message && !error && (
+            <div className="mt-4 flex items-start gap-2 border border-gray-200 bg-gray-50 p-3 text-sm">
+              {importedCount !== null ? (
+                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-700" />
+              ) : (
+                <FileCheck2 size={18} className="mt-0.5 shrink-0 text-gray-600" />
+              )}
+              <p>{message}</p>
             </div>
           )}
-        </section>
 
-        <section className="card overflow-hidden">
-          <div className="flex flex-col justify-between gap-4 border-b border-hairline p-5 sm:flex-row sm:items-center">
-            <div>
-              <h2 className="text-lg font-semibold">CSV Preview</h2>
-              <p className="mt-1 text-sm text-muted">
-                Review your imported data and correct invalid rows.
-              </p>
-            </div>
-
-            {rows.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={exportPreview}
-                  className="inline-flex items-center gap-2 rounded-xl border border-hairline px-4 py-3 text-sm font-semibold hover:bg-panel"
-                >
-                  <Download size={16} />
-                  Export Preview
-                </button>
-
-                <button
-                  onClick={importShipments}
-                  disabled={invalidCount > 0}
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-dark-1 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Upload size={16} />
-                  Validate Import
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-panel text-muted">
-                <tr>
-                  <th className="whitespace-nowrap px-4 py-4">Row</th>
-                  {headers.map((header) => (
-                    <th key={header} className="whitespace-nowrap px-4 py-4 font-medium">
-                      {header}
-                    </th>
-                  ))}
-                  {rows.length > 0 && (
-                    <th className="whitespace-nowrap px-4 py-4">Validation</th>
-                  )}
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-hairline">
-                {rows.slice(0, 100).map((row) => (
-                  <tr
-                    key={row.line}
-                    className={row.errors.length ? "bg-red-500/5" : "hover:bg-panel"}
-                  >
-                    <td className="px-4 py-4 text-muted">{row.line}</td>
-
-                    {headers.map((header, index) => (
-                      <td key={`${row.line}-${header}`} className="whitespace-nowrap px-4 py-4">
-                        {row.values[index] ?? ""}
-                      </td>
-                    ))}
-
-                    <td className="px-4 py-4">
-                      {row.errors.length === 0 ? (
-                        <span className="inline-flex items-center gap-1 text-emerald-600">
-                          <CheckCircle2 size={15} />
-                          Valid
-                        </span>
-                      ) : (
-                        <span
-                          title={row.errors.join("\n")}
-                          className="inline-flex items-center gap-1 text-red-500"
-                        >
-                          <AlertCircle size={15} />
-                          {row.errors.length} issue(s)
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={Math.max(headers.length + 2, 3)} className="px-5 py-16 text-center">
-                      <FileSpreadsheet size={32} className="mx-auto text-muted" />
-                      <p className="mt-3 font-medium">No CSV data yet</p>
-                      <p className="mt-1 text-sm text-muted">
-                        Upload a file to preview shipment rows here.
-                      </p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {rows.length > 100 && (
-            <p className="border-t border-hairline p-4 text-sm text-muted">
-              Showing the first 100 of {rows.length} rows. Validation covers all rows.
-            </p>
-          )}
-        </section>
-
-        <section className="card p-5">
-          <h2 className="font-semibold">Required CSV Columns</h2>
-          <p className="mt-2 text-sm text-muted">
-            Your CSV must contain these exact column names in its header row.
-          </p>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {requiredColumns.map((column) => (
-              <code
-                key={column}
-                className="rounded-lg bg-panel px-3 py-2 text-xs"
+          {rows.length > 0 && (
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={exportPreview}
+                className="inline-flex items-center gap-2 border border-gray-300 px-4 py-2.5 text-sm font-semibold hover:bg-gray-50"
               >
-                {column}
-              </code>
-            ))}
-          </div>
+                <Download size={16} /> Export preview
+              </button>
+              <button
+                type="button"
+                onClick={() => void importShipments()}
+                disabled={!allValid || importing || importedCount !== null}
+                className="inline-flex items-center gap-2 bg-[#FBB501] px-5 py-2.5 text-sm font-bold text-[#141B22] hover:bg-[#FAA212] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {importing ? (
+                  <RefreshCw size={16} className="animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                {importing ? "Importing..." : "Import valid shipments"}
+              </button>
+            </div>
+          )}
         </section>
+
+        {rows.length > 0 && (
+          <section className="border border-gray-200 bg-white">
+            <div className="flex flex-col justify-between gap-2 border-b border-gray-200 p-4 sm:flex-row sm:items-center">
+              <div>
+                <h2 className="font-bold">3. Review shipment rows</h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  Showing up to 100 rows. All rows are validated before import.
+                </p>
+              </div>
+              <span className="text-sm font-semibold">
+                {validCount} valid / {invalidCount} invalid
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[1150px] text-left text-sm">
+                <thead className="bg-[#F7F7F5] text-xs uppercase text-gray-500">
+                  <tr>
+                    <th className="px-4 py-3">Row</th>
+                    <th className="px-4 py-3">Sender</th>
+                    <th className="px-4 py-3">Receiver</th>
+                    <th className="px-4 py-3">Destination</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3">Weight</th>
+                    <th className="px-4 py-3">Parcel value</th>
+                    <th className="px-4 py-3">Payment</th>
+                    <th className="px-4 py-3">Validation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {rows.slice(0, 100).map((row) => (
+                    <tr
+                      key={row.rowNumber}
+                      className={row.errors.length ? "bg-red-50/40" : ""}
+                    >
+                      <td className="px-4 py-3">{row.rowNumber}</td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">
+                          {row.values.sender_name || "—"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {row.values.sender_phone || "—"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">
+                          {row.values.receiver_name || "—"}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {row.values.receiver_phone || "—"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.values.receiver_city || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.values.parcel_description || "—"}
+                      </td>
+                      <td className="px-4 py-3">{row.values.weight || "—"}</td>
+                      <td className="px-4 py-3">
+                        Rs. {row.values.parcel_value || "0"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.values.payment_method || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {row.errors.length ? (
+                          <div className="max-w-64 text-xs text-red-700">
+                            <p className="font-bold">
+                              {row.errors.length} error(s)
+                            </p>
+                            <ul className="mt-1 list-disc pl-4">
+                              {row.errors.map((item) => (
+                                <li key={item}>{item}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700">
+                            <CheckCircle2 size={15} /> Valid
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
       </div>
     </main>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="card flex items-center justify-between p-5">
-      <div>
-        <p className="text-sm text-muted">{label}</p>
-        <p className="mt-3 text-3xl font-bold">{value}</p>
-      </div>
-      <div className="rounded-xl bg-primary/15 p-3 text-primary">
-        {icon}
-      </div>
-    </div>
   );
 }

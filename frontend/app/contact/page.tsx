@@ -175,69 +175,36 @@ export default function ContactForm() {
   // SUBMIT TO BACKEND
   // --------------------------------------------------
 
-  async function submitInquiry() {
-    const response = await fetch(
-      `${API_URL}/api/contact`,
-      {
-        method: "POST",
+ async function submitInquiry() {
+  const response = await fetch(
+    `${API_URL}/api/contact`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        name: f.name.trim(),
+        phone: f.phone.trim(),
+        email: f.email.trim() || undefined,
+        type: f.type,
+        business: f.business.trim() || undefined,
+        message: f.message.trim(),
+      }),
+    }
+  );
 
-        headers: {
-          "Content-Type":
-            "application/json",
-          Accept:
-            "application/json",
-        },
+  const data = await response.json();
 
-        body: JSON.stringify({
-          name: f.name.trim(),
-          phone: f.phone.trim(),
-          email:
-            f.email.trim() || undefined,
-          type: f.type,
-          business:
-            f.business.trim() ||
-            undefined,
-          message: f.message.trim(),
-        }),
-      }
+  if (!response.ok || data.success === false) {
+    throw new Error(
+      data.message || "Unable to submit your inquiry."
     );
-
-    const contentType =
-      response.headers.get(
-        "content-type"
-      ) || "";
-
-    let data: {
-      success?: boolean;
-      message?: string;
-      error?: string;
-    } = {};
-
-    if (
-      contentType.includes(
-        "application/json"
-      )
-    ) {
-      data = await response.json();
-    } else {
-      const text =
-        await response.text();
-
-      data = {
-        message: text,
-      };
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data.message ||
-          data.error ||
-          "Unable to submit your inquiry."
-      );
-    }
-
-    return data;
   }
+
+  return data;
+}
 
   // --------------------------------------------------
   // EMAIL

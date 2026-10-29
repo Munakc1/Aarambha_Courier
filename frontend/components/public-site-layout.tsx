@@ -16,12 +16,19 @@ export default function PublicSiteLayout({
 }) {
   const pathname = usePathname();
 
-  // Hide public website navigation on all authenticated dashboard routes.
+  // Hide the public website layout on dashboard routes,
+  // but keep it visible on vendor login and register pages.
   const isDashboard =
     pathname === "/dashboard" ||
     pathname.startsWith("/dashboard/") ||
     pathname === "/vendor" ||
-    pathname.startsWith("/vendor/");
+    (pathname.startsWith("/vendor/") &&
+      pathname !== "/vendor/login" &&
+      pathname !== "/vendor/register") ||
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
+    pathname === "/rider" ||
+    pathname.startsWith("/rider/");
 
   if (isDashboard) {
     return <>{children}</>;

@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { Request, Response } from "express";
-import Vendor from "../models/vendor.model";
+import Vendor from "../models/vendor.model.js";
 import {
   comparePassword,
   hashPassword

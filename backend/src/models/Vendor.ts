@@ -1,85 +1,93 @@
-import mongoose, { Document, Model, Schema } from "mongoose";
 
-export interface IVendor extends Document {
-  fullName: string;
+import { Schema, model, models, type Model } from "mongoose";
+
+export const BUSINESS_TYPES = [
+  "Retail",
+  "Wholesale",
+  "Manufacturer",
+  "Distributor",
+  "E-commerce",
+  "Other",
+] as const;
+
+export const PROVINCES = [
+  "Koshi Province",
+  "Madhesh Province",
+  "Bagmati Province",
+  "Gandaki Province",
+  "Lumbini Province",
+  "Karnali Province",
+  "Sudurpashchim Province",
+] as const;
+
+export interface IVendor {
+  name: string;
+  contactName: string;
   businessName: string;
   email: string;
   phone: string;
+  passwordHash: string;
+  businessType: string;
+  registrationNumber: string;
   address: string;
-  password: string;
-  role: "vendor";
-  isActive: boolean;
-  createdAt: Date;
-  updatedAt: Date;
+  city: string;
+  province: string;
+  postalCode: string;
+  description: string;
+  status: string;
+  isVerified: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const vendorSchema = new Schema<IVendor>(
   {
-    fullName: {
-      type: String,
-      required: true,
-      trim: true,
-      minlength: 2,
-      maxlength: 100,
-    },
-
-    businessName: {
-      type: String,
-      required: true,
-      trim: true,
-      minlength: 2,
-      maxlength: 150,
-    },
+    name: { type: String, trim: true, default: "" },
+    contactName: { type: String, trim: true, default: "" },
+    businessName: { type: String, trim: true, default: "" },
 
     email: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       trim: true,
-      index: true,
+      unique: true,
     },
 
     phone: {
       type: String,
-      required: true,
-      unique: true,
       trim: true,
-      index: true,
+      default: "",
     },
 
-    address: {
+    // Keep the field name consistent with your existing login code.
+    passwordHash: {
       type: String,
       required: true,
-      trim: true,
-      maxlength: 300,
-    },
-
-    password: {
-      type: String,
-      required: true,
-      minlength: 8,
       select: false,
     },
 
-    role: {
+    businessType: {
       type: String,
-      enum: ["vendor"],
-      default: "vendor",
+      enum: BUSINESS_TYPES,
+      default: "Other",
     },
 
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
+    registrationNumber: { type: String, trim: true, default: "" },
+    address: { type: String, trim: true, default: "" },
+    city: { type: String, trim: true, default: "" },
+    province: { type: String, trim: true, default: "" },
+    postalCode: { type: String, trim: true, default: "" },
+    description: { type: String, trim: true, maxlength: 1000, default: "" },
+
+    status: { type: String, default: "ACTIVE" },
+    isVerified: { type: Boolean, default: false },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true },
 );
 
-const Vendor: Model<IVendor> =
-  mongoose.models.Vendor ||
-  mongoose.model<IVendor>("Vendor", vendorSchema);
+export const Vendor: Model<IVendor> =
+  (models.Vendor as Model<IVendor>) ||
+  model<IVendor>("Vendor", vendorSchema);
 
 export default Vendor;
