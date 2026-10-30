@@ -30,7 +30,7 @@ export const blogArticles: BlogArticle[] = [
       "Simple practical steps for preparing parcels before handing them over to a courier service.",
     category: "Courier Tips",
     date: "2026-10-05",
-    image: "/images/blog/parcel-preparation.jpg",
+    image: "/images/11.jpg",
     imageAlt:
       "A parcel being prepared for courier delivery in Nepal",
     readTime: "4 min read",
@@ -90,7 +90,7 @@ export const blogArticles: BlogArticle[] = [
       "Practical ways online sellers can organize parcel pickup, shipment information, and delivery workflows.",
     category: "E-commerce Logistics",
     date: "2026-10-03",
-    image: "/images/blog/online-seller-logistics.jpg",
+    image: "/images/55.jpg",
     imageAlt:
       "Online seller preparing parcels for courier pickup",
     readTime: "5 min read",
@@ -141,7 +141,7 @@ export const blogArticles: BlogArticle[] = [
       "Important things online sellers should consider when managing cash-on-delivery shipments.",
     category: "COD Guidance",
     date: "2026-10-01",
-    image: "/images/blog/cod-online-sellers.jpg",
+    image: "/images/33.jpg",
     imageAlt:
       "Cash on delivery parcel prepared by an online seller",
     readTime: "5 min read",
@@ -184,7 +184,7 @@ export const blogArticles: BlogArticle[] = [
       "A practical guide to choosing suitable packaging and preparing parcels before shipment.",
     category: "Packaging Tips",
     date: "2026-09-28",
-    image: "/images/blog/packaging-basics.jpg",
+    image: "/images/44.jpg",
     imageAlt:
       "Courier parcel packaging materials and prepared packages",
     readTime: "4 min read",
@@ -227,7 +227,7 @@ export const blogArticles: BlogArticle[] = [
       "What common shipment statuses mean and how they fit into the courier delivery process.",
     category: "Delivery Updates",
     date: "2026-09-25",
-    image: "/images/blog/shipment-tracking.jpg",
+    image: "/images/22.jpg",
     imageAlt:
       "Courier shipment tracking status displayed on a phone",
     readTime: "4 min read",
