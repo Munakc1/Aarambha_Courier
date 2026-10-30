@@ -79,42 +79,47 @@ export default function HomeFAQ() {
       <div className="relative mx-auto max-w-5xl">
         {/* Heading */}
         <div className="text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#f2a900] sm:text-[11px]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#FAA212] sm:text-[11px]">
             Frequently Asked Questions
           </p>
 
           <h2
             id="faq-heading"
-            className="mt-1 text-2xl font-extrabold tracking-tight text-[#111111] sm:text-3xl lg:text-[36px]"
+            className="mt-2 text-2xl font-extrabold tracking-tight text-[#0A0E12] sm:text-3xl lg:text-[36px]"
           >
             Have Questions? We&apos;ve Got Answers.
           </h2>
+
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[#666a70] sm:text-base">
+            Find answers to common questions about deliveries, tracking,
+            vendor registration, and COD services.
+          </p>
         </div>
 
         {/* FAQ Grid */}
-        <div className="mt-7 grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-x-7 md:gap-y-2.5">
+        <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-x-6 md:gap-y-3">
           {/* Left Column */}
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {leftFAQs.map((item) => (
               <details
                 key={item.question}
-                className="group border border-[#e5e5e5] bg-white transition-all duration-200 hover:border-[#cfcfcf] hover:shadow-sm"
+                className="group border border-[#e5e5e5] bg-white transition-colors duration-200 hover:border-[#FBB501] open:border-[#FBB501]"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 sm:px-5 sm:py-3 [&::-webkit-details-marker]:hidden">
-                  <span className="text-[12px] font-semibold text-[#222] sm:text-[13px]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
+                  <span className="text-xs font-semibold leading-5 text-[#222222] sm:text-sm">
                     {item.question}
                   </span>
 
                   <span
-                    className="flex h-6 w-6 shrink-0 items-center justify-center text-[#222] transition-transform duration-200 group-open:rotate-45"
                     aria-hidden="true"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-[#0A0E12] transition-transform duration-200 group-open:rotate-45"
                   >
-                    <Plus size={15} strokeWidth={2} />
+                    <Plus size={16} strokeWidth={2} />
                   </span>
                 </summary>
 
                 <div className="border-t border-[#eeeeee] px-4 py-3 sm:px-5">
-                  <p className="text-xs leading-6 text-[#707070] sm:text-sm">
+                  <p className="text-xs leading-6 text-[#666a70] sm:text-sm">
                     {item.answer}
                   </p>
                 </div>
@@ -123,27 +128,27 @@ export default function HomeFAQ() {
           </div>
 
           {/* Right Column */}
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {rightFAQs.map((item) => (
               <details
                 key={item.question}
-                className="group border border-[#e5e5e5] bg-white transition-all duration-200 hover:border-[#cfcfcf] hover:shadow-sm"
+                className="group border border-[#e5e5e5] bg-white transition-colors duration-200 hover:border-[#FBB501] open:border-[#FBB501]"
               >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-2.5 sm:px-5 sm:py-3 [&::-webkit-details-marker]:hidden">
-                  <span className="text-[12px] font-semibold text-[#222] sm:text-[13px]">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3.5 sm:px-5 [&::-webkit-details-marker]:hidden">
+                  <span className="text-xs font-semibold leading-5 text-[#222222] sm:text-sm">
                     {item.question}
                   </span>
 
                   <span
-                    className="flex h-6 w-6 shrink-0 items-center justify-center text-[#222] transition-transform duration-200 group-open:rotate-45"
                     aria-hidden="true"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center text-[#0A0E12] transition-transform duration-200 group-open:rotate-45"
                   >
-                    <Plus size={15} strokeWidth={2} />
+                    <Plus size={16} strokeWidth={2} />
                   </span>
                 </summary>
 
                 <div className="border-t border-[#eeeeee] px-4 py-3 sm:px-5">
-                  <p className="text-xs leading-6 text-[#707070] sm:text-sm">
+                  <p className="text-xs leading-6 text-[#666a70] sm:text-sm">
                     {item.answer}
                   </p>
                 </div>
@@ -153,15 +158,14 @@ export default function HomeFAQ() {
         </div>
 
         {/* View All FAQs */}
-        <div className="mt-5 flex justify-center">
+        <div className="mt-6 flex justify-center">
           <Link
             href="/faq"
-            className="group inline-flex items-center gap-2 border border-[#d8d8d8] bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-[#333] transition-all duration-200 hover:border-[#111] hover:bg-[#111] hover:text-white sm:px-5 sm:py-2.5 sm:text-[11px]"
+            className="group inline-flex items-center gap-2 border border-[#d8d8d8] bg-white px-5 py-2.5 text-[11px] font-bold uppercase tracking-wide text-[#0A0E12] transition-colors duration-200 hover:border-[#0A0E12] hover:bg-[#0A0E12] hover:text-white"
           >
             View All FAQs
-
             <ArrowRight
-              size={13}
+              size={14}
               strokeWidth={2}
               className="transition-transform duration-200 group-hover:translate-x-1"
             />

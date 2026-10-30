@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
-import StatsBar from "./Statsbar";
+import Link from "next/link";
+// import StatsBar from "./Statsbar";
 
-type Service = {
+/* =========================================================
+   TYPES
+   ========================================================= */
+
+export type Service = {
   title: string;
   description: string;
   href: string;
@@ -15,7 +20,12 @@ const iconProps = {
   "aria-hidden": true,
 } as const;
 
-const services: Service[] = [
+/* =========================================================
+   SERVICES DATA
+   Each href is the pathway to that service's own page.
+   ========================================================= */
+
+export const services: Service[] = [
   {
     title: "Domestic Courier",
     description:
@@ -109,12 +119,38 @@ const services: Service[] = [
   },
 ];
 
+/* =========================================================
+   ARROW ICON
+   ========================================================= */
+
+function ArrowIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
+  );
+}
+
+/* =========================================================
+   SERVICES SECTION
+   ========================================================= */
+
 export default function Services() {
   return (
     <section
       id="services"
       aria-labelledby="services-heading"
-      className="bg-app px-4 py-16 sm:px-6 lg:px-8"
+      className="scroll-mt-24 bg-app px-4 py-16 sm:px-6 lg:px-8"
     >
       <div className="mx-auto max-w-7xl">
         {/* Section heading */}
@@ -131,16 +167,17 @@ export default function Services() {
           </h2>
 
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-muted sm:text-base">
-            From everyday parcels and documents to business deliveries and
-            international shipments, we provide practical courier solutions
-            for individuals and businesses.
+            From everyday parcels and documents to business
+            deliveries and international shipments, we provide
+            practical courier solutions for individuals and
+            businesses.
           </p>
         </div>
 
         {/* Service cards */}
         <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {services.map((service) => (
-            <li key={service.title}>
+            <li key={service.href}>
               <article className="card flex h-full flex-col items-center bg-white-soft px-6 py-7 text-center dark:bg-surface">
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/40 text-dark-1">
                   {service.icon}
@@ -154,33 +191,34 @@ export default function Services() {
                   {service.description}
                 </p>
 
-                <a
+                <Link
                   href={service.href}
+                  aria-label={`Learn more about ${service.title}`}
                   className="mt-auto inline-flex items-center gap-1.5 pt-5 text-sm font-semibold text-fg transition-colors hover:text-accent-orange"
                 >
                   Learn More
-
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M5 12h14M13 6l6 6-6 6" />
-                  </svg>
-                </a>
+                  <ArrowIcon />
+                </Link>
               </article>
             </li>
           ))}
         </ul>
 
+        {/* Explore all services */}
+        <div className="mt-10 flex justify-center">
+          <Link
+            href="/services"
+            className="group inline-flex h-12 items-center justify-center gap-3 rounded-md bg-primary px-6 text-[14px] font-bold uppercase tracking-wide text-dark-1 shadow-[0_10px_24px_-12px_rgba(251,181,1,0.9)] transition-colors hover:bg-primary-light"
+          >
+            Explore Services
+            <span className="transition-transform group-hover:translate-x-0.5">
+              <ArrowIcon size={17} />
+            </span>
+          </Link>
+        </div>
+
         {/* Stats */}
-        <StatsBar />
+        {/* <StatsBar /> */}
       </div>
     </section>
   );

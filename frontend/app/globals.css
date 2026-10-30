@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
 
 /* Class-based dark mode — toggled by @lacspace/theme's <ThemeProvider>. */
 @custom-variant dark (&:where(.dark, .dark *));
