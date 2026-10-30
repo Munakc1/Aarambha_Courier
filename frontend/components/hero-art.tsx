@@ -1,4 +1,3 @@
-
 "use client";
 
 import Image from "next/image";
@@ -6,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
-  Bike,
   ImagePlus,
+  MessageCircle,
   PackageSearch,
   Send,
 } from "lucide-react";
@@ -19,10 +18,30 @@ import {
 } from "react";
 
 /* =========================================================
-   HERO IMAGE
+   CONFIG
    ========================================================= */
 
-const HERO_IMAGE = "/images/hero.png";
+const HERO_IMAGE = "/images/hero.jpg";
+
+export const COMPANY = {
+  name: "Aarambha Courier",
+  location: "Kupondole, Lalitpur, Nepal",
+  phones: [
+    { display: "9801255799", tel: "+9779801255799" },
+    { display: "9801255790", tel: "+9779801255790" },
+  ],
+  email: "aarambhatransport@gmail.com",
+};
+
+// Country code (977) + number, no "+" or spaces.
+// Make sure this number is the one registered on WhatsApp.
+const WHATSAPP_NUMBER = "9779801255799";
+const WHATSAPP_MESSAGE =
+  "Hello Aarambha Courier, I would like to talk about courier and logistics support for my business.";
+
+const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
+  WHATSAPP_MESSAGE
+)}`;
 
 /* =========================================================
    HERO ART
@@ -34,19 +53,10 @@ export function HeroArt() {
       aria-labelledby="hero-title"
       className="relative bg-white"
     >
-      {/* =====================================================
-          HERO BANNER
-          ===================================================== */}
-
       <div className="relative overflow-hidden rounded-b-[40px] bg-cream lg:min-h-[500px] lg:rounded-bl-[56px]">
-        {/* Hero image */}
         <HeroImage />
 
-        {/* ===================================================
-            DOTTED DELIVERY ROUTE
-            Desktop only
-            =================================================== */}
-
+        {/* Dotted delivery route (desktop only) */}
         <svg
           aria-hidden="true"
           viewBox="305 18 400 112"
@@ -60,7 +70,6 @@ export function HeroArt() {
             strokeLinecap="round"
             strokeDasharray="0.5 6"
           />
-
           <path
             d="M480 52 C 566 40, 646 78, 700 124"
             stroke="var(--primary)"
@@ -68,7 +77,6 @@ export function HeroArt() {
             strokeLinecap="round"
             strokeDasharray="0.5 6"
           />
-
           <ellipse
             cx="460"
             cy="68"
@@ -77,18 +85,11 @@ export function HeroArt() {
             fill="var(--primary)"
             opacity="0.35"
           />
-
           <path
             d="M460 66 C 460 66 444 52 444 41 a16 16 0 1 1 32 0 C 476 52 460 66 460 66 Z"
             fill="var(--primary)"
           />
-
-          <circle
-            cx="460"
-            cy="41"
-            r="6"
-            fill="#fff"
-          />
+          <circle cx="460" cy="41" r="6" fill="#fff" />
         </svg>
 
         {/* ===================================================
@@ -105,44 +106,78 @@ export function HeroArt() {
             {/* Heading */}
             <h1
               id="hero-title"
-              className="mt-3 text-[clamp(2.6rem,4.7vw,4.25rem)] font-extrabold uppercase text-dark-1"
+              className="mt-3 text-[clamp(2rem,3.8vw,3.25rem)] font-extrabold text-dark-1"
               style={{
-                lineHeight: 0.98,
+                lineHeight: 1.08,
                 letterSpacing: "-0.01em",
               }}
             >
-              We deliver
+              Courier &amp; Logistics Support
               <span className="block text-primary">
-                Trust
+                for Growing Businesses in Nepal
               </span>
             </h1>
 
             {/* Description */}
-            <p className="mt-4 max-w-sm text-[16px] leading-7 text-dark-1/85 sm:text-[17px]">
-              Aarambha Courier delivers your parcels safely
-              and on time across Nepal.
+            <p className="mt-4 max-w-md text-[16px] leading-7 text-dark-1/85 sm:text-[17px]">
+              {COMPANY.name} delivers your parcels safely and
+              on time, so your business can focus on growing.
             </p>
 
-            {/* Book Pickup */}
-            <Link
-              href="/book-pickup"
-              className="group mt-7 inline-flex h-12 items-center gap-3 rounded-md bg-primary px-5 text-[14px] font-bold uppercase tracking-wide text-dark-1 shadow-[0_10px_24px_-12px_rgba(251,181,1,0.9)] transition-colors hover:bg-primary-light"
-            >
-              <Bike
-                size={22}
-                strokeWidth={1.7}
-                aria-hidden="true"
-              />
+            {/* Buttons */}
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+              {/* WhatsApp */}
+              <a
+                href={WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group inline-flex h-12 items-center justify-center gap-3 rounded-md bg-primary px-5 text-[14px] font-bold uppercase tracking-wide text-dark-1 shadow-[0_10px_24px_-12px_rgba(251,181,1,0.9)] transition-colors hover:bg-primary-light"
+              >
+                <MessageCircle
+                  size={22}
+                  strokeWidth={1.7}
+                  aria-hidden="true"
+                />
+                Talk to Us on WhatsApp
+                <ArrowRight
+                  size={17}
+                  strokeWidth={2.2}
+                  aria-hidden="true"
+                  className="transition-transform group-hover:translate-x-0.5"
+                />
+              </a>
 
-              Book a Pickup
+              {/* Track Shipment (scrolls to tracking card) */}
+              <Link
+                href="#track"
+                className="inline-flex h-12 items-center justify-center gap-3 rounded-md border-2 border-dark-1 bg-transparent px-5 text-[14px] font-bold uppercase tracking-wide text-dark-1 transition-colors hover:bg-dark-1 hover:text-white"
+              >
+                <PackageSearch
+                  size={22}
+                  strokeWidth={1.7}
+                  aria-hidden="true"
+                />
+                Track Shipment
+              </Link>
+            </div>
 
-              <ArrowRight
-                size={17}
-                strokeWidth={2.2}
-                aria-hidden="true"
-                className="transition-transform group-hover:translate-x-0.5"
-              />
-            </Link>
+            {/* Contact line */}
+            <p className="mt-5 text-[14px] leading-6 text-dark-1/80">
+              Call us:{" "}
+              {COMPANY.phones.map((phone, index) => (
+                <span key={phone.tel}>
+                  {index > 0 && " / "}
+                  <a
+                    href={`tel:${phone.tel}`}
+                    className="font-semibold underline-offset-2 hover:underline"
+                  >
+                    {phone.display}
+                  </a>
+                </span>
+              ))}
+              <br />
+              {COMPANY.location}
+            </p>
           </div>
         </div>
       </div>
@@ -151,7 +186,10 @@ export function HeroArt() {
           TRACKING CARD
           ===================================================== */}
 
-      <div className="relative z-20 mx-auto -mt-8 w-[calc(100%-2.5rem)] max-w-[1160px] sm:w-[calc(100%-4rem)] lg:-mt-12 lg:w-[86%]">
+      <div
+        id="track"
+        className="relative z-20 mx-auto -mt-8 w-[calc(100%-2.5rem)] max-w-[1160px] scroll-mt-24 sm:w-[calc(100%-4rem)] lg:-mt-12 lg:w-[86%]"
+      >
         <TrackCard />
       </div>
     </section>
@@ -169,11 +207,7 @@ function HeroImage() {
   useEffect(() => {
     const image = imageRef.current;
 
-    if (
-      image &&
-      image.complete &&
-      image.naturalWidth === 0
-    ) {
+    if (image && image.complete && image.naturalWidth === 0) {
       setFailed(true);
     }
   }, []);
@@ -181,33 +215,23 @@ function HeroImage() {
   return (
     <div className="relative mt-8 aspect-[4/3] w-full sm:aspect-[16/10] lg:absolute lg:inset-y-0 lg:right-0 lg:mt-0 lg:aspect-auto lg:w-[67%]">
       {failed ? (
-        /* ===================================================
-           FALLBACK
-           =================================================== */
-
         <div className="absolute inset-4 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-primary/70 bg-white/50 text-center text-[13px] text-dark-1/70 lg:inset-8 lg:left-24">
           <ImagePlus
             size={28}
             aria-hidden="true"
             className="text-primary"
           />
-
           <span className="font-semibold">
             Hero image goes here
           </span>
-
           <span>
             Add{" "}
             <code className="rounded bg-dark-1/5 px-1.5 py-0.5">
-              public/images/hero.png
+              public{HERO_IMAGE}
             </code>
           </span>
         </div>
       ) : (
-        /* ===================================================
-           ACTUAL IMAGE
-           =================================================== */
-
         <Image
           ref={imageRef}
           src={HERO_IMAGE}
@@ -220,10 +244,7 @@ function HeroImage() {
         />
       )}
 
-      {/* ===================================================
-          MOBILE FADE
-          =================================================== */}
-
+      {/* Mobile fade */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 lg:hidden"
@@ -233,10 +254,7 @@ function HeroImage() {
         }}
       />
 
-      {/* ===================================================
-          DESKTOP FADE
-          =================================================== */}
-
+      {/* Desktop fade */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 hidden lg:block"
@@ -264,20 +282,12 @@ function TrackCard() {
 
     const trackingNumber = value.trim();
 
-    /* -----------------------------------------------
-       Validation
-       ----------------------------------------------- */
-
     if (!trackingNumber) {
       setError("Please enter your tracking number.");
       return;
     }
 
     setError("");
-
-    /* -----------------------------------------------
-       Navigate to tracking page
-       ----------------------------------------------- */
 
     router.push(
       `/track?number=${encodeURIComponent(trackingNumber)}`
@@ -292,10 +302,6 @@ function TrackCard() {
       aria-label="Track your shipment"
       className="rounded-2xl border border-black/5 bg-white p-5 shadow-[0_22px_50px_-22px_rgba(10,14,18,0.28)] sm:px-7 lg:flex lg:items-center lg:gap-7 lg:py-5"
     >
-      {/* =================================================
-          ICON + TEXT
-          ================================================= */}
-
       <div className="flex items-center gap-4 lg:w-[340px] lg:shrink-0">
         <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary/45 text-dark-1">
           <PackageSearch
@@ -308,10 +314,7 @@ function TrackCard() {
         <div>
           <h2
             className="text-[17px] font-extrabold uppercase text-dark-1 sm:text-[18px]"
-            style={{
-              letterSpacing: "0.01em",
-              lineHeight: 1.2,
-            }}
+            style={{ letterSpacing: "0.01em", lineHeight: 1.2 }}
           >
             Track your shipment
           </h2>
@@ -323,15 +326,8 @@ function TrackCard() {
         </div>
       </div>
 
-      {/* =================================================
-          INPUT
-          ================================================= */}
-
       <div className="mt-4 flex-1 lg:mt-0">
-        <label
-          htmlFor="tracking-number"
-          className="sr-only"
-        >
+        <label htmlFor="tracking-number" className="sr-only">
           Tracking number
         </label>
 
@@ -345,17 +341,12 @@ function TrackCard() {
           value={value}
           onChange={(event) => {
             setValue(event.target.value);
-
-            if (error) {
-              setError("");
-            }
+            if (error) setError("");
           }}
           aria-invalid={Boolean(error)}
           aria-describedby="tracking-error"
           className={`h-[54px] w-full rounded-md border bg-white px-4 text-[15px] text-dark-1 outline-none transition-colors placeholder:text-text-grey focus-visible:border-primary ${
-            error
-              ? "border-red-400"
-              : "border-[#d9dde3]"
+            error ? "border-red-400" : "border-[#d9dde3]"
           }`}
         />
 
@@ -368,20 +359,11 @@ function TrackCard() {
         </p>
       </div>
 
-      {/* =================================================
-          BUTTON
-          ================================================= */}
-
       <button
         type="submit"
         className="mt-3 inline-flex h-[54px] w-full items-center justify-center gap-2.5 rounded-md bg-primary text-[15px] font-bold uppercase tracking-wide text-dark-1 transition-colors hover:bg-primary-light lg:mt-0 lg:w-[220px] lg:shrink-0 lg:self-start"
       >
-        <Send
-          size={19}
-          strokeWidth={1.8}
-          aria-hidden="true"
-        />
-
+        <Send size={19} strokeWidth={1.8} aria-hidden="true" />
         Track Now
       </button>
     </form>

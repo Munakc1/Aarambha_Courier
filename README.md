@@ -36,3 +36,30 @@ Everything on the backend is built from zero-dependency `@lacspace/*` packages â
 ## Make it yours
 
 Rename the `Note` resource (in `types/index.d.ts`, `backend/src/models/note.ts`, `backend/src/routes/notes.ts`) to your real domain object, then follow the same pattern for more resources. The shared `types/` package keeps the frontend and backend in lock-step.
+
+
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:5000/api";
+
+export async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "API request failed");
+  }
+
+  return data as T;
+}
