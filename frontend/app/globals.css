@@ -2,6 +2,7 @@
 @import "leaflet/dist/leaflet.css";
 @import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap");
 /* Class-based dark mode — toggled by @lacspace/theme's <ThemeProvider>. */
+@custom-variant dark (&:where(.dark, .dark *));
 
 
 /* Semantic color tokens → Tailwind utilities (text-fg, text-muted, bg-surface,

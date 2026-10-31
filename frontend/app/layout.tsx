@@ -20,7 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="font-inter" suppressHydrationWarning>
       <body className="antialiased">
-        <ThemeProvider defaultTheme="dark">
+        <ThemeProvider defaultTheme="light">
           <PublicSiteLayout>{children}</PublicSiteLayout>
         </ThemeProvider>
 
