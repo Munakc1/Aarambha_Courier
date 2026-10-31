@@ -1,10 +1,10 @@
-
 "use client";
 
 import Image from "next/image";
 import Link from "next/link";
 import {
   FormEvent,
+  Suspense,
   useEffect,
   useState,
 } from "react";
@@ -25,7 +25,7 @@ const API_URL = (
   "http://localhost:5000"
 ).replace(/\/+$/, "");
 
-export default function VendorLoginPage() {
+function VendorLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -397,4 +397,11 @@ export default function VendorLoginPage() {
     </main>
   );
 }
- 
+
+export default function VendorLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <VendorLoginForm />
+    </Suspense>
+  );
+}
