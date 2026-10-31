@@ -1,6 +1,14 @@
 
+"use client";
 import { Truck, ShieldCheck, PackageCheck } from "lucide-react";
-import NepalMap from "./NepalMap";
+import dynamic from "next/dynamic";
+
+const NepalMap = dynamic(() => import("./NepalMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[300px] w-full border border-border bg-muted/30 sm:h-[380px] lg:h-[320px]" />
+  ),
+});
 
 const benefits = [
   {
