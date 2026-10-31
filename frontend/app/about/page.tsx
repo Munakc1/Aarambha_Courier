@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { Bricolage_Grotesque } from "next/font/google";
 import {
   ArrowRight,
   Banknote,
@@ -29,11 +28,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/* Headline font. If you prefer your site's default font, delete this and `display.className` below. */
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["600", "700", "800"],
-});
+/* Headline font is loaded through globals.css (.font-bricolage) */
+const display = { className: "font-bricolage" };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -245,7 +241,7 @@ export default function AboutPage() {
                       <li
                         key={step.title}
                         className="aarambha-step relative flex gap-4"
-                        style={{ ["--i" as string]: i }}
+                        style={{ "--i": i } as CSSProperties}
                       >
                         <span
                           className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 ${
